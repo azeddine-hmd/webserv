@@ -7,6 +7,8 @@
 #include <string>
 #include <iostream>
 #include <vector>
+#define PORT 8081
+
 
 
 
@@ -25,6 +27,7 @@ class ft_socket
             address.sin_port = htons( port );
             memset(address.sin_zero, '\0', sizeof address.sin_zero);
             addlen = sizeof(address);
+            int opt = 1;
             if ((fd = socket(AF_INET, SOCK_STREAM, 0)) == 0)
             {
                 perror("In socket");
@@ -40,6 +43,7 @@ class ft_socket
                 perror("In listen");
                 exit(EXIT_FAILURE);
             }
+            fcntl(fd, F_SETFL, O_NONBLOCK);
         }
         int get_fd()
         {
@@ -57,10 +61,6 @@ class ft_socket
         }
 };
 
-
-
-
-
 int main(int argc, char const *argv[])
 {
     long valread;
@@ -68,7 +68,7 @@ int main(int argc, char const *argv[])
     std::vector<ft_socket> listen_s;
  
 	char a[200000] = "";
-    int fd = open("test.jpg",O_RDONLY);
+    int fd = open("index.html",O_RDONLY);
     int ret = 0;
     size_t size = 0;
     do {
@@ -76,76 +76,53 @@ int main(int argc, char const *argv[])
         size += ret;
     } while (ret == BUFSIZ);
 
-
-    ft_socket s1(8080);
+    ft_socket s1(PORT);
     listen_s.push_back(s1.get_fd());
     fd_set master;
     FD_ZERO(&master);
     FD_SET(s1.get_fd(), &master);
     timeval tv;
-    tv.tv_sec = 1;
-    tv.tv_usec = 0;
+    tv.tv_sec = 0;
+    tv.tv_usec = 1000;
     while(1)
     {
-        // std::cerr<<"\n+++++++ Waiting for new connection ++++++++\n\n";
-        // if ((new_socket = accept(server_fd, (struct sockaddr *)&address, (socklen_t*)&addrlen))<0)
-        // {
-        //     perror("In accept");
-        //     exit(EXIT_FAILURE);
-        // }
+
         fd_set copy = master;
-        //std::cout << copy.fds_bits << std::endl;
         select(0,&copy,nullptr,nullptr,&tv);
-
-        for(int i = 0; i < listen_s.size();i++)
+        if (FD_ISSET(s1.get_fd(),&copy))
         {
-            ft_socket &tmp = listen_s[i];
-
-            if (FD_ISSET(tmp.get_fd(),&copy))
+            int new_socket = accept(s1.get_fd(), (sockaddr *)(s1.get_address()), s1.get_addlen());
+            if(new_socket > 0)
             {
-                std::cerr << "add client added" << std::endl;
-                active.push_back(accept(tmp.get_fd(), (sockaddr *)(tmp.get_address()), tmp.get_addlen()));
+                active.push_back(new_socket);
+                FD_SET(new_socket,&master);
             }
         }
-        for(int i = 0; i < active.size();i++)
+        int i = 0;
+        while(i < active.size())
         {
-            std::cout << "hello" << std::endl;
             if(FD_ISSET(active[i],&copy))
             {
-                char buffer[30000] = {0};
+                
+                char buffer[30000];
                 valread = read( active[i] , buffer, 30000);
-                if(valread <= 0)
-                {
-                    close(active[i]);
-                    active.erase(active.begin() + i);
-                    break;
-                }
-                std::string hello = "HTTP/1.1 200 OK\r\nContent-Type: image/jpg\r\nContent-Length: " + std::to_string(size) + "\r\n\r\n";
+                std::cout << active[i] << std::endl;
+                std::cout << "buffer: " << buffer << std::endl;
+                std::string hello = "HTTP/1.1 200 OK\r\nContent-Type: text/html\r\nContent-Length: " + std::to_string(size) + "\r\n\r\n";
                 char *payload = (char*)malloc(hello.length() + size);
                 memset(payload, 0, hello.length() + size);
                 memcpy(payload, hello.c_str(), hello.length());
                 memcpy(payload + hello.length(), a, size);
                 // char *hello = ft
                 write(active[i] , payload  , hello.length() + size);
+                free(payload);
+                active.erase(active.begin() + i);
+                FD_CLR(active[i],&copy);
+                //std::cout << "after erase " << active.size() << std::endl;
             }
+            else
+                i++;
         }
-
-
-
-
-        // char buffer[30000] = {0};
-        // valread = read( new_socket , buffer, 30000);
-        // std::cerr << buffer <<std::endl;
-        // std::string hello = "HTTP/1.1 200 OK\r\nContent-Type: image/jpg\r\nContent-Length: " + std::to_string(size) + "\r\n\r\n";
-        // char *payload = (char*)malloc(hello.length() + size);
-        // memset(payload, 0, hello.length() + size);
-        // memcpy(payload, hello.c_str(), hello.length());
-        // memcpy(payload + hello.length(), a, size);
-        // // char *hello = ft
-        // write(new_socket , payload  , hello.length() + size);
-
-        // std::cerr<<"------------------Hello message sent-------------------"<<std::endl;
-        // close(new_socket);
     }
     return 0;
 }
