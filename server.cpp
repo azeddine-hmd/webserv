@@ -7,53 +7,72 @@
 #include <iostream>
 #include <vector>
 
-#define PORT 8081
+#define PORT 8080
 
 class Server {
     private:
-        sockaddr_in address;
-        socklen_t addlen;
-        int fd;
-        ft_socket(void){};
+        sockaddr_in _address;
+        socklen_t _addrlen;
+        int _fd;
+        bool _haveBind;
+        static const int MAX_LISTENERS = 1024;
+
+    private:
+        Server() {
+
+        }
+
+        clean() {
+
+        }
+
+        sockaddr_in getSocketAddress() {
+            sockaddr_in socketAddress;
+            socketAddress.sin_family = AF_INET;
+            socketAddress_address.sin_addr.s_addr = INADDR_ANY;
+            _address.sin_port = htons( port );
+            memset(socketAddress.sin_zero, 0, sizeof socketAddress.sin_zero);
+            return socketAddress;
+        }
+
     public:
-        ft_socket(int port)
-        {
-            address.sin_family = AF_INET;
-            address.sin_addr.s_addr = INADDR_ANY;
-            address.sin_port = htons( port );
-            memset(address.sin_zero, '\0', sizeof address.sin_zero);
-            addlen = sizeof(address);
-            int opt = 1;
-            if ((fd = socket(AF_INET, SOCK_STREAM, 0)) == 0)
+        Server( int port ): _haveBind(false) {
+            _address = getSocketAddress();
+            _addrlen = sizeof(_address);
+
+            if ((_fd = socket(AF_INET, SOCK_STREAM, 0)) < 0)
             {
                 perror("In socket");
                 exit(EXIT_FAILURE);
             }
-            if (bind(fd, (sockaddr *)&address, sizeof(address))<0)
+
+            if (bind(_fd, (sockaddr *)&_address, sizeof(_address)) < 0)
             {
+                close(_fd);
                 perror("In bind");
                 exit(EXIT_FAILURE);
             }
-            if (listen(fd, 1024) < 0)
+            _haveBind = true;
+
+            if (listen(_fd, MAX_LISTENERS) < 0)
             {
                 perror("In listen");
                 exit(EXIT_FAILURE);
             }
-            fcntl(fd, F_SETFL, O_NONBLOCK);
-        }
-        int get_fd()
-        {
-            return fd;
+
+            fcntl(_fd, F_SETFL, O_NONBLOCK);
         }
 
-        sockaddr_in *get_address()
-        {
-            return &address;
+        int getFd() {
+            return _fd;
         }
 
-        socklen_t *get_addlen()
-        {
-            return &addlen;
+        sockaddr_in* getAddress() {
+            return &_address;
+        }
+
+        socklen_t* getAddrlen() {
+            return &_addrlen;
         }
 };
 
@@ -61,7 +80,7 @@ int main(int argc, char const *argv[])
 {
     long valread;
     std::vector<int> active;
-    std::vector<ft_socket> listen_s;
+    std::vector<Server> listen_s;
  
 	char a[200000] = "";
     int fd = open("index.html",O_RDONLY);
@@ -72,7 +91,7 @@ int main(int argc, char const *argv[])
         size += ret;
     } while (ret == BUFSIZ);
 
-    ft_socket s1(PORT);
+    Server s1(PORT);
     listen_s.push_back(s1.get_fd());
     fd_set master;
     FD_ZERO(&master);
@@ -87,7 +106,7 @@ int main(int argc, char const *argv[])
         select(0,&copy,nullptr,nullptr,&tv);
         if (FD_ISSET(s1.get_fd(),&copy))
         {
-            int new_socket = accept(s1.get_fd(), (sockaddr *)(s1.get_address()), s1.get_addlen());
+            int new_socket = accept(s1.get_fd(), (sockaddr *)(s1.get_address()), s1.getAddrlen());
             if(new_socket > 0)
             {
                 active.push_back(new_socket);
