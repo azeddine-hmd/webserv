@@ -13,4 +13,4 @@
 ### class
 * Use upper case letters as word separators, lower case for the rest of the word in the class name.
   (e.g "class Calculator", "class ServerHandler", )
-* resolving conflict would be by using namespace `ws` instead of prefixing ft_ (e.g "ws::server()")
+* resolving conflict would be by using namespace `ws` instead of prefixing with ft_ (e.g "ws::server()")
