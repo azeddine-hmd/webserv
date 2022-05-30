@@ -3,17 +3,13 @@
 #include <stdlib.h>
 #include <netinet/in.h>
 #include <fcntl.h>
-
 #include <string>
 #include <iostream>
 #include <vector>
+
 #define PORT 8081
 
-
-
-
-class ft_socket
-{
+class Server {
     private:
         sockaddr_in address;
         socklen_t addlen;

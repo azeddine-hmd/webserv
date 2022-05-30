@@ -1,0 +1,23 @@
+# Executables
+*.exe
+*.out
+*.app
+client
+server
+
+# Objects
+*.o
+*.obj
+
+# Text Editor
+.idea/
+build/
+.vscode/
+
+# Debugging
+*.dSYM/
+debug
+log
+
+# other
+.DS_Store
