@@ -22,22 +22,18 @@ class Server {
 
         }
 
-        clean() {
-
-        }
-
-        sockaddr_in getSocketAddress() {
+        sockaddr_in getSocketAddress( int port ) {
             sockaddr_in socketAddress;
             socketAddress.sin_family = AF_INET;
-            socketAddress_address.sin_addr.s_addr = INADDR_ANY;
-            _address.sin_port = htons( port );
+            socketAddress.sin_addr.s_addr = INADDR_ANY;
+            socketAddress.sin_port = htons( port );
             memset(socketAddress.sin_zero, 0, sizeof socketAddress.sin_zero);
             return socketAddress;
         }
 
     public:
         Server( int port ): _haveBind(false) {
-            _address = getSocketAddress();
+            _address = getSocketAddress(port);
             _addrlen = sizeof(_address);
 
             if ((_fd = socket(AF_INET, SOCK_STREAM, 0)) < 0)
@@ -92,10 +88,10 @@ int main(int argc, char const *argv[])
     } while (ret == BUFSIZ);
 
     Server s1(PORT);
-    listen_s.push_back(s1.get_fd());
+    listen_s.push_back(s1.getFd());
     fd_set master;
     FD_ZERO(&master);
-    FD_SET(s1.get_fd(), &master);
+    FD_SET(s1.getFd(), &master);
     timeval tv;
     tv.tv_sec = 0;
     tv.tv_usec = 1000;
@@ -104,9 +100,9 @@ int main(int argc, char const *argv[])
 
         fd_set copy = master;
         select(0,&copy,nullptr,nullptr,&tv);
-        if (FD_ISSET(s1.get_fd(),&copy))
+        if (FD_ISSET(s1.getFd(),&copy))
         {
-            int new_socket = accept(s1.get_fd(), (sockaddr *)(s1.get_address()), s1.getAddrlen());
+            int new_socket = accept(s1.getFd(), (sockaddr *)(s1.getAddress()), s1.getAddrlen());
             if(new_socket > 0)
             {
                 active.push_back(new_socket);
