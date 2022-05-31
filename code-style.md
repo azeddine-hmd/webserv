@@ -13,7 +13,7 @@
 * don't join function body in one line (e.g "Server() {}" later is undesired behaviour)
 
 ### class
-* prefix all member class with `m` (e.g "std::string mName", "int mFd")
+* prefix private member variables with `m` (e.g "std::string mName", "int mFd")
 * Use upper case letters as word separators, lower case for the rest of the word in the class name.
   (e.g "class Calculator", "class ServerHandler", )
 * resolving conflict would be by using namespace `ws` instead of prefixing with ft_ (e.g "ws::server()")
