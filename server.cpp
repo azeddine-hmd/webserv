@@ -7,7 +7,7 @@
 #include <iostream>
 #include <vector>
 
-#define PORT 8080
+#define PORT 8081
 
 class Server {
     private:
@@ -114,13 +114,12 @@ int main(int argc, char const *argv[])
         {
             if(FD_ISSET(active[i],&copy))
             {
-                
                 char buffer[30000];
                 valread = read( active[i] , buffer, 30000);
-                std::cout << active[i] << std::endl;
-                std::cout << "buffer: " << buffer << std::endl;
+                std::cout << buffer << std::endl;
                 std::string hello = "HTTP/1.1 200 OK\r\nContent-Type: text/html\r\nContent-Length: " + std::to_string(size) + "\r\n\r\n";
                 char *payload = (char*)malloc(hello.length() + size);
+                bzero(payload, hello.length() + size);
                 memset(payload, 0, hello.length() + size);
                 memcpy(payload, hello.c_str(), hello.length());
                 memcpy(payload + hello.length(), a, size);
@@ -129,7 +128,6 @@ int main(int argc, char const *argv[])
                 free(payload);
                 active.erase(active.begin() + i);
                 FD_CLR(active[i],&copy);
-                //std::cout << "after erase " << active.size() << std::endl;
             }
             else
                 i++;
@@ -137,3 +135,27 @@ int main(int argc, char const *argv[])
     }
     return 0;
 }
+
+
+//file b random name copy system(mv 566 /uploads/)
+
+/*
+
+GET /hello/fsdfdsfdsfdsf HTTP/1.1
+Host: 127.0.0.1:8081
+Connection: keep-alive
+sec-ch-ua: " Not A;Brand";v="99", "Chromium";v="101", "Google Chrome";v="101"
+sec-ch-ua-mobile: ?0
+sec-ch-ua-platform: "macOS"
+Upgrade-Insecure-Requests: 1
+User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_14_6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/101.0.4951.64 Safari/537.36\r\n
+Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,imag
+
+e/apng,;q=0.8,application/signed-exchange;v=b3;q=0.9\r\n
+Sec-Fetch-Site: none
+Sec-Fetch-Mode: navigate
+Sec-Fetch-User: ?1
+Sec-Fetch-Dest: document
+Accept-Encoding: gzip, deflate, br
+
+*/
