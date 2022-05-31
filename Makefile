@@ -5,7 +5,7 @@ FLAGS = -Wall -Werror -Wextra
 FLAGS_DEBUG = -Wall -Werror -Wextra -g3 -fsanitize=address
 FLAGS_EMPTY =
 
-SRC = server.cpp
+SRC = server.cpp request/gnl.cpp
 OBJ = ${SRC:.cpp=.o}
 
 CLIENT_SRC = client.c

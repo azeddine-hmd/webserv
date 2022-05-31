@@ -7,7 +7,9 @@
 #include <iostream>
 #include <vector>
 
-#define PORT 8081
+#include "request/request.hpp"
+
+#define PORT 8080
 
 class Server {
     private:
@@ -72,21 +74,20 @@ class Server {
         }
 };
 
+void closePort(int sig)
+{
+    close(PORT);
+    exit(0);
+}
+
+
 int main(int argc, char const *argv[])
 {
     long valread;
-    std::vector<int> active;
+    std::vector<Request> active;
     std::vector<Server> listen_s;
- 
-	char a[200000] = "";
-    int fd = open("index.html",O_RDONLY);
-    int ret = 0;
-    size_t size = 0;
-    do {
-        ret = read(fd, a + size, BUFSIZ);
-        size += ret;
-    } while (ret == BUFSIZ);
 
+    signal(SIGINT, closePort);
     Server s1(PORT);
     listen_s.push_back(s1.getFd());
     fd_set master;
@@ -97,7 +98,6 @@ int main(int argc, char const *argv[])
     tv.tv_usec = 1000;
     while(1)
     {
-
         fd_set copy = master;
         select(0,&copy,nullptr,nullptr,&tv);
         if (FD_ISSET(s1.getFd(),&copy))
@@ -105,29 +105,21 @@ int main(int argc, char const *argv[])
             int new_socket = accept(s1.getFd(), (sockaddr *)(s1.getAddress()), s1.getAddrlen());
             if(new_socket > 0)
             {
-                active.push_back(new_socket);
+                active.push_back(Request(new_socket));
                 FD_SET(new_socket,&master);
             }
         }
         int i = 0;
         while(i < active.size())
         {
-            if(FD_ISSET(active[i],&copy))
+            if(FD_ISSET( active[i].getFd(), &copy ))
             {
-                char buffer[30000];
-                valread = read( active[i] , buffer, 30000);
-                std::cout << buffer << std::endl;
-                std::string hello = "HTTP/1.1 200 OK\r\nContent-Type: text/html\r\nContent-Length: " + std::to_string(size) + "\r\n\r\n";
-                char *payload = (char*)malloc(hello.length() + size);
-                bzero(payload, hello.length() + size);
-                memset(payload, 0, hello.length() + size);
-                memcpy(payload, hello.c_str(), hello.length());
-                memcpy(payload + hello.length(), a, size);
-                // char *hello = ft
-                write(active[i] , payload  , hello.length() + size);
-                free(payload);
+                active[i].readChunk();
+                std::cout << active[i].getHeader("Host") << std::endl;
+                std::string hello = "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: 11\r\n\r\nhello world";
+                write(active[i].getFd() , hello.c_str() , hello.size());
                 active.erase(active.begin() + i);
-                FD_CLR(active[i],&copy);
+                FD_CLR(active[i].getFd(),&copy); 
             }
             else
                 i++;
@@ -135,27 +127,3 @@ int main(int argc, char const *argv[])
     }
     return 0;
 }
-
-
-//file b random name copy system(mv 566 /uploads/)
-
-/*
-
-GET /hello/fsdfdsfdsfdsf HTTP/1.1
-Host: 127.0.0.1:8081
-Connection: keep-alive
-sec-ch-ua: " Not A;Brand";v="99", "Chromium";v="101", "Google Chrome";v="101"
-sec-ch-ua-mobile: ?0
-sec-ch-ua-platform: "macOS"
-Upgrade-Insecure-Requests: 1
-User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_14_6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/101.0.4951.64 Safari/537.36\r\n
-Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,imag
-
-e/apng,;q=0.8,application/signed-exchange;v=b3;q=0.9\r\n
-Sec-Fetch-Site: none
-Sec-Fetch-Mode: navigate
-Sec-Fetch-User: ?1
-Sec-Fetch-Dest: document
-Accept-Encoding: gzip, deflate, br
-
-*/
