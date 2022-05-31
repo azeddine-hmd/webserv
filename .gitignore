@@ -19,5 +19,8 @@ build/
 debug
 log
 
+# Test
+tester
+
 # other
 .DS_Store
