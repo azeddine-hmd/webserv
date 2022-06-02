@@ -4,6 +4,7 @@
 *.app
 client
 server
+tester
 
 # Objects
 *.o
@@ -18,9 +19,7 @@ build/
 *.dSYM/
 debug
 log
-
-# Test
-tester
+tester.cpp
 
 # other
 .DS_Store
