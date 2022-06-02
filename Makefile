@@ -6,7 +6,8 @@ FLAGS = -Wall -Werror -Wextra
 FLAGS_UNUSED = -Wall -Werror -Wextra -Wno-unused-variable -Wno-unused-parameter
 
 FLAGS_DEBUG = -Wall -Werror -Wextra -g3 -fsanitize=address
-FLAGS_DEBUG_UNUSED = -Wall -Werror -Wextra -g3 -fsanitize=address -Wno-unused-variable -Wno-unused-parameter
+FLAGS_DEBUG_UNUSED = -Wall -Werror -Wextra -g3 -fsanitize=address \
+			-Wno-unused-variable -Wno-unused-parameter -Wno-unused-private-field
 
 FLAGS_EMPTY =
 
@@ -20,15 +21,15 @@ CLIENT_OBJ = $(CLIENT_SRC:.c=.o)
 all: $(NAME)
 
 $(NAME): $(SRC)
-	@$(CC) $(FLAGS) $< -o $(NAME)
+	@$(CC) $(FLAGS_UNUSED) $< -o $(NAME)
 
 client: $(CLIENT_SRC)
-	@$(CC) $(FLAGS) $< -o client
+	@$(CC) $(FLAGS_UNUSED) $< -o client
 
 clean:
 	@rm -f $(OBJ) $(CLIENT_OBJ) $(NAME) client
 
-test_config: test/config/config.cpp
+test_config: test/config.cpp
 	@$(CC) $(FLAGS_DEBUG_UNUSED) $< -o tester
 
 re: clean all

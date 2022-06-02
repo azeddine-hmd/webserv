@@ -35,6 +35,10 @@ void headerTest(std::string const& subject) {
     std::cout << COLORS_CYAN_BOLD << "=========[ Testing: " << subject << " ]========="  << COLORS_DEFAULT << std::endl;
 }
 
+void separator() {
+    std::cout << COLORS_CYAN << "=========" << COLORS_DEFAULT << std::endl;
+}
+
 // conditional functions
 
 template<typename T>
@@ -46,3 +50,11 @@ void assertEqual(T const& a, T const& b) {
     }
 }
 
+template<typename T>
+void assertNotEqual(T const& a, T const& b) {
+    if (a != b) {
+        test_passed();
+    } else {
+        test_failed();
+    }
+}

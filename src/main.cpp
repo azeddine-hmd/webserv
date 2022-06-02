@@ -6,7 +6,7 @@ void intercept(int sig) {
 }
 
 int     main( int argc, char **argv ) {
-    if (argc > 3) {
+    if (argc > 2) {
         std::cerr << "usage: ./webserv [<config-file>]" << std::endl;
         return EXIT_FAILURE;
     }
