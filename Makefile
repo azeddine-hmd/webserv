@@ -21,10 +21,10 @@ CLIENT_OBJ = $(CLIENT_SRC:.c=.o)
 all: $(NAME)
 
 $(NAME): $(SRC)
-	@$(CC) $(FLAGS_UNUSED) $< -o $>
+	@$(CC) $(FLAGS_UNUSED) $< -o $(NAME)
 
 client: $(CLIENT_SRC)
-	@$(CC) $(FLAGS_UNUSED) $< -o $>
+	@$(CC) $(FLAGS_UNUSED) $< -o client
 
 clean:
 	@rm -f $(OBJ) $(CLIENT_OBJ) $(NAME) client

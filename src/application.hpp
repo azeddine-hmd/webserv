@@ -1,3 +1,5 @@
+#pragma once
+
 #include "config.hpp"
 
 namespace ws {
@@ -5,18 +7,19 @@ namespace ws {
     class Application {
         Config mConfig;
 
-    public:
-        Application(): mConfig()  {
-
+        Application() {
+            throw std::runtime_error("Don't call default constructor, Idiot!");
         }
 
-        Application( std::string const& path ): mConfig(path) {
+    public:
+        Application( Config const& config ): mConfig(config) {
 
         }
 
         Config const& getConfig() {
             return mConfig;
         }
+
     };
 
 }

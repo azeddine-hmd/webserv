@@ -7,7 +7,8 @@
 
 namespace ws {
 
-    struct Config {
+    class Config {
+    public:
         std::string                 path;
         std::vector<ServerBlock>    serverBlocks;
 
@@ -15,36 +16,13 @@ namespace ws {
 
         /*
          * Exception:
-         *      - FileNotOpened
-         *      - NoServerBlockFound
+         *      - PathException
          *      - ParsingException
          */
-        void init() {
-            try {
-                serverBlocks = parsingServerBlocks(path);
-            } catch (FileNotOpened& e) {
-                throw e;
-            } catch (ParsingException& e) {
-                throw e;
-            }
-
-            if (serverBlocks.empty()) {
-                throw NoServerBlockFound();
-            }
-        }
-
-        /*
-         * Exception:
-         *      - FileNotOpened
-         *      - NoServerBlockFound
-         *      - ParsingException
-         */
-        Config(void): path(DEFAULT_CONFIG_PATH) {
+        Config(): path(DEFAULT_CONFIG_PATH) {
             try {
                 init();
-            } catch (FileNotOpened& e) {
-                throw e;
-            } catch (NoServerBlockFound& e) {
+            } catch (PathException& e) {
                 throw e;
             } catch (ParsingException& e) {
                 throw e;
@@ -53,16 +31,13 @@ namespace ws {
 
         /*
          * Exception:
-         *      - FileNotOpened
-         *      - NoServerBlockFound
+         *      - PathException
          *      - ParsingException
          */
         Config(std::string const& path): path(path) {
             try {
                 init();
-            } catch (FileNotOpened& e) {
-                throw e;
-            } catch (NoServerBlockFound& e) {
+            } catch (PathException& e) {
                 throw e;
             } catch (ParsingException& e) {
                 throw e;
@@ -87,12 +62,31 @@ namespace ws {
     private:
         /*
          * Exception:
+         *      - PathException
+         *      - ParsingException
+         */
+        void init() {
+            try {
+                serverBlocks = parsingServerBlocks(path);
+            } catch (PathException& e) {
+                throw e;
+            } catch (ParsingException& e) {
+                throw e;
+            }
+
+            if (serverBlocks.empty()) {
+                throw ParsingException("No server block have been found");
+            }
+        }
+
+        /*
+         * Exception:
          *      - ParsingException
          */
         std::vector<ServerBlock> parsingServerBlocks(std::string const& path) const {
             std::ifstream fs(path.c_str());
             if (!fs) {
-                throw FileNotOpened();
+                throw PathException();
             }
 
             std::string data, line;
@@ -188,6 +182,8 @@ namespace ws {
             } catch (ParsingException& e) {
                 throw e;
             }
+            //TODO: continue
+            std::cout << "count_of_keywords: " << sizeof(parse::keywords) << std::endl;
         }
 
         /*
@@ -213,17 +209,10 @@ namespace ws {
         }
 
     public:
-        class FileNotOpened : public std::exception {
+        class PathException : public std::exception {
         public:
             virtual char const* what() const throw() {
                 return strerror(errno);
-            }
-        };
-
-        class NoServerBlockFound : public std::exception {
-        public:
-            virtual char const* what() const throw() {
-                return "No server block have been found";
             }
         };
 

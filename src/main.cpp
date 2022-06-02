@@ -1,4 +1,5 @@
 #include <iostream>
+#include "config.hpp"
 #include "application.hpp"
 
 void intercept(int sig) {
@@ -10,11 +11,21 @@ int     main( int argc, char **argv ) {
         std::cerr << "usage: ./webserv [<config-file>]" << std::endl;
         return EXIT_FAILURE;
     }
-
     signal(SIGINT, intercept);
     signal(SIGTERM, intercept);
 
-    ws::Application app;
+    ws::Config * config;
+    try {
+        config = (argc == 1) ? new ws::Config() : new ws::Config(argv[1]);
+    } catch (ws::Config::PathException& e) {
+        std::cerr << "PathException: " << e.what() << std::endl;
+        return EXIT_FAILURE;
+    } catch (ws::Config::ParsingException& e) {
+        std::cerr << "ParsingException: " << e.what() << std::endl;
+        return EXIT_FAILURE;
+    }
+
+    ws::Application app(*config);
 
     return EXIT_SUCCESS;
 }
