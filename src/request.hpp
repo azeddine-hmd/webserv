@@ -7,29 +7,44 @@
 #include <fstream>
 #include <unistd.h>
 #include <sstream>
+#include <cstdlib>
+#include <ctime>
+
+#include <fcntl.h>
 
 
 std::string getNextLine(int fd);
 #define BUFFER_SIZE 10000
+
+
+struct BodyFile
+{
+	public:
+		int 		fd;
+		std::string name;
+};
+
 
 class Request
 {
 	private:
 		int                                 _SockFd; // socket file descriptor
 		std::map<std::string, std::string>  _Headers; // map contains all the headers sent by the client including the method, path, http version
-		std::string							_Body; // body :)
+		std::string							_BodyBuffer; // body :)
 		bool								_HeaderDone; // true after parsing the headers
 		bool								_RequestDone; // true when req is done
+		BodyFile							_BodyFile;
 
 		Request( void ) {
 
 		}
 	public:
 		Request( int fd ) {
-			_SockFd = fd;
-			_HeaderDone = false;
-			_RequestDone = false;
-			_Body = "";
+			_SockFd 		= fd;
+			_HeaderDone 	= false;
+			_RequestDone 	= false;
+			_BodyBuffer 	= "";
+			_BodyFile.fd 	= -1;
 		}
 		~Request( void ) {
 
@@ -67,7 +82,7 @@ class Request
 
 		// get a parameter by key
 		std::string getBody( void ) {
-			return _Body;
+			return _BodyBuffer;
 		}
 		
 		// true if the request is done else false;
@@ -79,15 +94,32 @@ class Request
 			return _SockFd;
 		}
 
+		void CreateFile()
+		{
+			int random = (int)time(nullptr);
+			std::string n = std::string("USER_") + std::to_string(random);
+			_BodyFile.fd = open(n.c_str(), O_CREAT | O_WRONLY, 0644);
+			_BodyFile.name = n;
+		}
+
 		// parse the header in the first call then reads a chunk of BUFFER_SIZE bits
 		void readChunk ( void ) {
 			if(_HeaderDone)
 			{
 				char buf[BUFFER_SIZE];
 				int ret = read(_SockFd, buf, BUFFER_SIZE);
-				_Body += std::string(buf, ret);
-				if(ret != BUFFER_SIZE)
+				
+				if(ret <= 0)
+				{
 					_RequestDone = true;
+					return;
+				}
+				if(ret > 0)
+				{
+					if(_BodyFile.fd == -1)
+						CreateFile();
+					write(_BodyFile.fd, buf, ret);
+				}	
 			}
 			else
 			{

@@ -7,7 +7,8 @@
 #include <iostream>
 #include <vector>
 
-#include "request/request.hpp"
+#include "request.hpp"
+#include "responseBuilder.hpp"
 
 #define PORT 8080
 
@@ -115,14 +116,16 @@ int main(int argc, char const *argv[])
             if(FD_ISSET( active[i].getFd(), &copy ))
             {
                 active[i].readChunk();
-                std::cout << active[i].getHeader("Host") << std::endl;
-                std::string hello = "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: 11\r\n\r\nhello world";
-                write(active[i].getFd() , hello.c_str() , hello.size());
-                active.erase(active.begin() + i);
-                FD_CLR(active[i].getFd(),&copy); 
+                if(active[i].getStatus())
+                {
+                    ResponseBuilder rb(active[i]);
+                    rb.sendShunk();
+                    active.erase(active.begin() + i);
+                    FD_CLR(active[i].getFd(),&master);
+                    close(active[i].getFd()); 
+                }
             }
-            else
-                i++;
+            i++;
         }
     }
     return 0;
