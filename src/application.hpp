@@ -3,7 +3,6 @@
 namespace ws {
 
     class Application {
-    private:
         Config mConfig;
 
     public:

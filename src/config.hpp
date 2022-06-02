@@ -1,77 +1,17 @@
 #pragma once
 
-#include <iostream>
-#include <map>
-#include <vector>
 #include <netinet/in.h>
 #include <unistd.h>
 #include <fstream>
+#include "config_model.hpp"
 
 namespace ws {
-
-    struct LocationBlock {
-        std::map<std::string, std::string>      data;
-        std::string 						    path;
-        bool 								    allowed;
-        std::vector<std::string> 			    allowedMethods;
-        std::string							    autoIndex;
-        std::string 						    uploadStore;
-        std::string 						    cgiPath;
-        std::vector<std::string> 			    cgiExit;
-        std::string 						    root;
-        std::string 						    returnCode;
-        std::string 						    returnPath;
-        long								    maxBodySize;
-        std::string							    indexFile;
-    };
-
-    struct ServerBlock {
-        std::map<std::string, std::string>      data;
-        std::string 						    ip;
-        std::string 						    port;
-        std::string 						    uploadStore;
-        bool 								    allowed; // to check if there is a key or not.
-        std::vector<std::string> 			    allowedMethods;
-        std::string 						    errorPagePath;
-        std::string 						    errorCode;
-        std::map<int, std::string>			    errorPage;
-        std::vector<std::string> 			    serverName;
-        std::string							    max_body_size;
-        std::vector<LocationBlock> 		        locations;
-        int 								    serverFd;
-        sockaddr_in 					        address;
-        long								    maxBodySize; // in kb
-    };
-
-    namespace parse {
-        std::string keywords[] = {
-                "listen",
-                "server_name",
-                "error_page",
-                "client_max_body_size",
-                "location",
-                "allow",
-                "autoindex",
-                "upload_store",
-                "cgi_pass",
-                "cgi_ext",
-                "index",
-                "return",
-                "root",
-                "server",
-                "}",
-                "{",
-                ""
-        };
-    }
 
     struct Config {
         std::string                 path;
         std::vector<ServerBlock>    serverBlocks;
 
         static char const* DEFAULT_CONFIG_PATH;
-
-    private:
 
         /*
          * Exception:
@@ -99,7 +39,7 @@ namespace ws {
          *      - NoServerBlockFound
          *      - ParsingException
          */
-        Config(): path(DEFAULT_CONFIG_PATH) {
+        Config(void): path(DEFAULT_CONFIG_PATH) {
             try {
                 init();
             } catch (FileNotOpened& e) {
@@ -144,6 +84,7 @@ namespace ws {
 //            return (all_server_block);
 //        }
 
+    private:
         /*
          * Exception:
          *      - ParsingException
@@ -271,7 +212,7 @@ namespace ws {
                 throw ParsingException("missing open bracket");
         }
 
-
+    public:
         class FileNotOpened : public std::exception {
         public:
             virtual char const* what() const throw() {
