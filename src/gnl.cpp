@@ -5,7 +5,7 @@
 std::string getNextLine(int fd)
 {
     std::string line = "";
-    char        c[1] = "";
+    char        c[2] = "\0";
     int         ret = 1;
     while(ret > 0)
     {

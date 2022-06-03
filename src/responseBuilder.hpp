@@ -40,7 +40,7 @@ class ResponseBuilder
             path += _req.getHeader("Path");
             int file = open(path.c_str(), O_RDONLY);
             std::string fileS = std::to_string(getContentLength(file));
-            std::cout << path << ": " << file<< std::endl;
+            //std::cout << path << ": " << file<< std::endl;
             // std::string response = std::string("HTTP/1.1 200 OK\r\nContent-Type: ")
             // + MimeTypes::getType(path.c_str()) + std::string("\r\nContent-Length: ")
             // + std::to_string(getContentLength()) + std::string("\r\n\r\n");
@@ -58,7 +58,8 @@ class ResponseBuilder
             {
                 write(_req.getFd(), buffer, 1024);
             }
-            
+            write(_req.getFd(), "\r\n\r\n", 4);
+            close(file);
             // write(_req.getFd(), )
             // if(!_HeaderSent)
             //     sendHeader(file);

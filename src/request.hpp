@@ -14,7 +14,7 @@
 
 
 std::string getNextLine(int fd);
-#define BUFFER_SIZE 10000
+#define BUFFER_SIZE 1024
 
 
 struct BodyFile
@@ -74,6 +74,8 @@ class Request
 			parseFirstLine();
 			while(parseParam() != -1);
 			_HeaderDone = true;
+			if(_Headers["Method"] != "POST")
+				_RequestDone = true;
 		}
 		// get a parameter by key
 		std::string getHeader( std::string key ) {
@@ -108,18 +110,17 @@ class Request
 			{
 				char buf[BUFFER_SIZE];
 				int ret = read(_SockFd, buf, BUFFER_SIZE);
-				
-				if(ret <= 0)
-				{
-					_RequestDone = true;
-					return;
-				}
 				if(ret > 0)
 				{
 					if(_BodyFile.fd == -1)
 						CreateFile();
 					write(_BodyFile.fd, buf, ret);
-				}	
+				}
+				if(ret != BUFFER_SIZE)
+				{
+					_RequestDone = true;
+					return;
+				}
 			}
 			else
 			{
