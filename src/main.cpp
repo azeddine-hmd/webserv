@@ -3,6 +3,8 @@
 #include "application.hpp"
 
 void intercept(int sig) {
+    (void)sig;
+    //TODO: close all files descriptors
     exit(EXIT_SUCCESS);
 }
 
@@ -14,6 +16,7 @@ int     main( int argc, char **argv ) {
     signal(SIGINT, intercept);
     signal(SIGTERM, intercept);
 
+    // create config
     ws::Config * config;
     try {
         config = (argc == 1) ? new ws::Config() : new ws::Config(argv[1]);
@@ -25,7 +28,8 @@ int     main( int argc, char **argv ) {
         return EXIT_FAILURE;
     }
 
-    ws::Application app(*config);
+    // run application
+    ws::Application app(config);
 
     return EXIT_SUCCESS;
 }
