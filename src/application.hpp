@@ -5,19 +5,23 @@
 namespace ws {
 
     class Application {
-        Config mConfig;
+        Config* mConfig;
 
         Application() {
-            throw std::runtime_error("Don't call default constructor, Idiot!");
+            throw std::runtime_error("don't call default constructor, Idiot!");
         }
 
     public:
-        Application( Config const& config ): mConfig(config) {
+        Application( Config* config ): mConfig(config) {
 
         }
 
+        ~Application() {
+            delete mConfig;
+        }
+
         Config const& getConfig() {
-            return mConfig;
+            return *mConfig;
         }
 
     };
