@@ -10,7 +10,7 @@
 #include "request.hpp"
 #include "responseBuilder.hpp"
 
-#define PORT 8080
+#define PORT 8081
 
 class Server {
     private:

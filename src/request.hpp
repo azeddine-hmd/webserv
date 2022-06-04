@@ -13,7 +13,7 @@
 #include <fcntl.h>
 
 
-std::string getNextLine(int fd);
+std::string getNextLine(std::string& buffer);
 #define BUFFER_SIZE 1024
 
 
@@ -51,7 +51,7 @@ class Request
 		}
 		// parse the first line of a request example: ()
 		void parseFirstLine ( void ) {
-			std::string str = getNextLine(_SockFd);
+			std::string str = getNextLine(_BodyBuffer);
 			std::stringstream ss(str);
 			ss >> _Headers["Method"];
 			ss >> _Headers["Path"];
@@ -59,7 +59,7 @@ class Request
 		}
 		// parse one line that contains one header example: (Content-Length: 531)
 		int parseParam ( void ) {
-			std::string str = getNextLine(_SockFd);
+			std::string str = getNextLine(_BodyBuffer);
 			if(str.size() == 0)
 				return -1;
 			std::stringstream ss(str);
@@ -71,11 +71,22 @@ class Request
 		}
 		// parse the whole header part of a request
 		void parseRequestHeader ( void ) {
+			char buf[BUFFER_SIZE * 10];
+			int ret = read(_SockFd, buf, BUFFER_SIZE * 10);
+			_BodyBuffer = std::string(buf, ret);
 			parseFirstLine();
 			while(parseParam() != -1);
 			_HeaderDone = true;
 			if(_Headers["Method"] != "POST")
+			{
 				_RequestDone = true;
+				lseek(_SockFd, 0, SEEK_END); // ignore body if method is get or delete
+			}
+			else
+			{
+				CreateFile();
+				write(_BodyFile.fd, _BodyBuffer.c_str(), _BodyBuffer.size());
+			}
 		}
 		// get a parameter by key
 		std::string getHeader( std::string key ) {
