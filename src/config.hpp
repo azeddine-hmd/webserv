@@ -4,18 +4,22 @@
 #include <unistd.h>
 #include <fstream>
 #include "config_model.hpp"
+#include "utils.hpp"
 
 namespace ws {
 
     class Config {
+        typedef std::vector<std::string>::iterator      LineIter;
+        typedef std::vector<char>::iterator             CharIter;
+
     public:
         std::string                 path;
         std::vector<ServerBlock>    serverBlocks;
+        static char const*          DEFAULT_CONFIG_PATH;
 
-        static char const* DEFAULT_CONFIG_PATH;
 
         /*
-         * Exception:
+         * throw Exception:
          *      - PathException
          *      - ParsingException
          */
@@ -30,7 +34,7 @@ namespace ws {
         }
 
         /*
-         * Exception:
+         * throw Exception:
          *      - PathException
          *      - ParsingException
          */
@@ -44,6 +48,27 @@ namespace ws {
             }
         }
 
+    private:
+        /*
+         * throw Exception:
+         *      - PathException
+         *      - ParsingException
+         */
+        void init() {
+            try {
+                serverBlocks = parsingServerBlocks(path);
+            } catch (PathException& e) {
+                throw e;
+            } catch (ParsingException& e) {
+                throw e;
+            }
+
+            if (serverBlocks.empty()) {
+                throw ParsingException("no server block were found");
+            }
+        }
+
+//TODO: remove it
 //        std::vector<Server_block> parsse_the_config_file(std::string path){
 //            std::string data, line;
 //            Server_block block;
@@ -59,57 +84,115 @@ namespace ws {
 //            return (all_server_block);
 //        }
 
-    private:
-        /*
-         * Exception:
-         *      - PathException
-         *      - ParsingException
-         */
-        void init() {
-            try {
-                serverBlocks = parsingServerBlocks(path);
-            } catch (PathException& e) {
-                throw e;
-            } catch (ParsingException& e) {
-                throw e;
-            }
-
-            if (serverBlocks.empty()) {
-                throw ParsingException("No server block have been found");
-            }
-        }
-
-        /*
-         * Exception:
-         *      - ParsingException
-         */
         std::vector<ServerBlock> parsingServerBlocks(std::string const& path) const {
             std::ifstream fs(path.c_str());
             if (!fs) {
                 throw PathException();
             }
 
-            std::string data, line;
+            // read config file into string
+            std::string line, data;
             while (getline(fs, line)) {
                 data += line;
                 data += "\n";
             }
 
             data = removeAllComments(data);
+            data = removeAllDuplicateEmptyLines(data);
+            data = removeSpacesBeforeBrackets(data);
 
             try {
-                checkingConfigErrors(data);
+                checkingConfigSyntaxError(data);
             } catch (ParsingException& e) {
                 throw e;
             }
+
+            std::vector<ServerBlock> serverBlock = getServersBlock(data);
 
             fs.close();
             return std::vector<ServerBlock>();
         }
 
+        std::vector<ServerBlock> getServersBlock(std::string const& data) const {
+            std::vector<std::string> serversBlockData = getServersBlockData(data);
+            //TODO: continue
+
+            return std::vector<ServerBlock>();
+        }
+
+        std::vector<std::string> getServersBlockData(std::string const& data) const {
+            std::vector<std::string> serversBlockData;
+
+            for (size_t i = 0; data[i]; i++) {
+                int64_t start = findBeginOfServerBlockData(data, i);
+                if (start != -1) {
+                    int64_t end = findEndOfServerBlockData(data, start);
+                    serversBlockData.push_back(data.substr(start, end - start  + 1));
+                }
+            }
+
+            return serversBlockData;
+        }
+
+        int64_t findEndOfServerBlockData(std::string const& data, size_t start) const {
+            char brackets[] = {'{', '}'};
+            std::stack<char> matches;
+
+            for (size_t i = start + 1; i < data.length(); i++) {
+                if (data[i] == brackets[0]) {
+                    matches.push(brackets[0]);
+                } else if (data[i] == brackets[1]) {
+                    if (matches.empty()) {
+                        return static_cast<int64_t>(i) - 1;
+                    }
+                    matches.pop();
+                }
+            }
+
+            return -1;
+        }
+
+        int64_t findBeginOfServerBlockData(std::string const& data, size_t start) const {
+            std::string const& keyword = "server";
+            size_t i = 0;
+            while ( data[i] && keyword[i] == data[start + i] ) {
+                i++;
+            }
+
+            if (i == 6) {
+                i += start;
+                if ( i  + 2 < data.length() && (data[i] == ' ' || data[i] == '\n') ){
+                    if (data[i + 1] == '{')
+                        return static_cast<int64_t>(i) + 2;
+                }
+            }
+
+            return -1;
+        }
+
+        std::string removeSpacesBeforeBrackets(std::string const& data)  {
+            //TODO: continue
+
+            return std::string();
+        }
+
+        std::string removeAllDuplicateEmptyLines(std::string const& data) const {
+            std::vector<char> newData(data.begin(), data.end());
+            newData.push_back('\0');
+
+            for (size_t i = 0; newData[i]; i++) {
+                if (newData[i + 1] && newData[i] == '\n' && newData[i + 1] == '\n') {
+                    newData.erase(  newData.begin() + static_cast<size_t>(i) );
+                    i--;
+                }
+            }
+
+            return std::string(newData.begin(), newData.end());
+        }
+
         // symbols for starting comments are ';' and '#'.
-        // How it work? by adding character after character from old data to a newer one
-        // and skipping entire comment characters.
+        // How it work? by adding character after character from old data to a newer one but this time skipping
+        // characters that considered part of comments.
         std::string removeAllComments(std::string& data) const {
             std::string newData;
 
@@ -117,7 +200,7 @@ namespace ws {
             // iterator from beginning until the end
             while (i < data.length()) {
                 // skip characters
-                if (isAtEnd(data, i)) {
+                if (isAtEndOfLine(data, i)) {
                     while (i < data.length() && data[i] != '\n') {
                         i++;
                     }
@@ -130,11 +213,11 @@ namespace ws {
             while (i >= 0 && ( newData[i] == ' ' || newData[i] == '\t')) {
                 newData.pop_back();
             }
-
             return newData;
         }
 
-        bool isAtEnd(std::string& data, size_t i) const {
+        // 'End' in function name means last important character in a line or file
+        bool isAtEndOfLine(std::string& data, size_t i) const {
             if (data[i] == '#' || data[i] == ';') {
                 return true;
             } else if (data[i] == ' ') {
@@ -149,47 +232,36 @@ namespace ws {
             return false;
         }
 
-//        void check_error_in_file(std::string data){
-//            check_brackets(data);
-//            std::string valide_keyword[] = {"listen", "server_name", "error_page", "client_max_body_size", "location", "allow", "autoindex", "upload_store", "cgi_pass", "cgi_ext", "index", "return", "root", "server", "}", "{", "" };
-//            int count_of_keys = 17;
-//            std::vector<std::string> check = split(data, "\n");
-//            std::vector<std::string>::iterator it_begin(check.begin());
-//            std::vector<std::string>::iterator it_end(check.end());
-//            std::string element;
-//            --it_begin;
-//            while(++it_begin != it_end){
-//                element = *it_begin;
-//                std::string key = get_key_from_line(element);
-//                for (int i = 0; i < count_of_keys + 1; i++)
-//                {
-//                    if (i == count_of_keys){
-//                        throw "Found keyword not allowed";
-//                    }
-//                    if (valide_keyword[i] == key)
-//                        break ;
-//                }
-//            }
-//        }
-
-        /*
-         * Exception:
-         *      - ParsingException
-         */
-        void checkingConfigErrors(std::string const& data) const {
+        void checkingConfigSyntaxError(std::string const& data) const {
             try {
                 checkingBrackets(data);
             } catch (ParsingException& e) {
                 throw e;
             }
-            //TODO: continue
-            std::cout << "count_of_keywords: " << sizeof(parse::keywords) << std::endl;
+
+            // checking valid keys
+            std::vector<std::string> dataLines = split(data, "\n");
+            for (LineIter it = dataLines.begin(); it != dataLines.end(); it++) {
+                std::string key = getKey(*it);
+                if (!isValidKey(key)) {
+                    //TODO: refactor it
+                    throw ParsingException(
+                            std::string(std::string("Unknown keyword `") + key + std::string("`")).c_str());
+                }
+            }
+
         }
 
-        /*
-         * Exception:
-         *      - ParsingException
-         */
+        bool isValidKey(std::string const& key) const {
+            bool isEqual = false;
+            for (size_t i = 0; i < parse::keywordsLen; i++) {
+                if (key == parse::validKeys[i])
+                    isEqual = true;
+            }
+
+            return isEqual;
+        }
+
         void checkingBrackets(std::string const& data) const {
             char brackets[] = {'{', '}'};
             std::stack<char> matches;
@@ -198,14 +270,27 @@ namespace ws {
                 if (data[i] == brackets[0]) {
                     matches.push(brackets[0]);
                 } else if (data[i] == brackets[1]) {
-                    if (matches.size() > 0) {
+                    if (matches.empty()) {
                         throw ParsingException("missing close bracket");
                     }
                     matches.pop();
                 }
             }
             if (matches.size() != 0)
-                throw ParsingException("missing open bracket");
+                throw ParsingException("missing open bracket!");
+        }
+
+        std::string getKey(std::string const& lineData) const {
+            std::string key;
+            size_t i = 0;
+            while ( lineData[i] && (lineData[i] == ' ' || lineData[i] == '\t') )
+                i++;
+            while ( lineData[i] && (lineData[i] != ' ' && lineData[i] != '\t') ) {
+                key += lineData[i];
+                i++;
+            }
+
+            return key;
         }
 
     public:
