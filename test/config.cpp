@@ -22,7 +22,7 @@ int     main(int argc, char **argv) {
         // testing FileNotOpened exception
         try {
             ws::Config config_4("config_not_exit/some_path/random_file");
-        } catch (ws::Config::FileNotOpened& e) {
+        } catch (ws::Config::PathException& e) {
             test_passed();
         } catch (std::exception& e) {
             test_failed();
@@ -34,7 +34,7 @@ int     main(int argc, char **argv) {
         // empty config
         try {
             ws::Config config_1("config/empty_config.conf");
-        } catch (ws::Config::NoServerBlockFound& e) {
+        } catch (ws::Config::ParsingException& e) {
             test_passed();
         } catch (std::exception& e) {
             test_failed();
