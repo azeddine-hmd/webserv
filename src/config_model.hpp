@@ -24,24 +24,24 @@ namespace ws {
 
     struct ServerBlock {
         std::map <std::string, std::string> data;
-        std::string ip;
+        std::string host;
         std::string port;
         std::string uploadStore;
         bool allowed; // to check if there is a key or not.
-        std::vector <std::string> allowedMethods;
+        std::vector<std::string> allowedMethods;
         std::string errorPagePath;
         std::string errorCode;
         std::map<int, std::string> errorPage;
         std::vector <std::string> serverName;
         std::string max_body_size;
-        std::vector <LocationBlock> locations;
+        std::vector<LocationBlock> locations;
         int serverFd;
         sockaddr_in address;
         long maxBodySize; // in kb
     };
 
     namespace parse {
-        std::string keywords[] = {
+        std::string validKeys[] = {
                 "listen",
                 "server_name",
                 "error_page",
@@ -60,6 +60,8 @@ namespace ws {
                 "{",
                 ""
         };
+
+        size_t keywordsLen = sizeof(parse::validKeys)/sizeof(*(parse::validKeys));
     }
 
 } // namespace ws
