@@ -15,7 +15,9 @@ namespace ws {
     public:
         std::string                 path;
         std::vector<ServerBlock>    serverBlocks;
+
         static char const*          DEFAULT_CONFIG_PATH;
+        static size_t               MINIMUM_CONFIG_SIZE;
 
 
         /*
@@ -49,11 +51,7 @@ namespace ws {
         }
 
     private:
-        /*
-         * throw Exception:
-         *      - PathException
-         *      - ParsingException
-         */
+
         void init() {
             try {
                 serverBlocks = parsingServerBlocks(path);
@@ -64,7 +62,7 @@ namespace ws {
             }
 
             if (serverBlocks.empty()) {
-                throw ParsingException("no server block were found");
+               throw ParsingException(formatMessage("no server block were found"));
             }
         }
 
@@ -97,6 +95,10 @@ namespace ws {
                 data += "\n";
             }
 
+            if (data.size() < MINIMUM_CONFIG_SIZE)
+                throw ParsingException(formatMessage("file config too small"));
+
+            // removing unnecessary information from data string for easy parsing later
             data = removeAllComments(data);
             data = removeAllDuplicateEmptyLines(data);
             data = removeSpacesBeforeBrackets(data);
@@ -170,10 +172,36 @@ namespace ws {
             return -1;
         }
 
-        std::string removeSpacesBeforeBrackets(std::string const& data)  {
-            //TODO: continue
+        std::string removeSpacesBeforeBrackets(std::string const& data) const {
+            std::vector<char> newData(data.begin(), data.end());
 
-            return std::string();
+
+            for (size_t i = newData.size() - 3; i >= 0; i--) {
+
+                if (newData[i + 1] == '{' || newData[i + 1] == '}') {
+
+                    while ( i - 1 >= 0
+                            && (newData[i - 1] == ' ' || newData[i] == '\t' || newData[i] == '\n' )
+                            && (newData[i] == ' ' || newData[i] == '\t')
+                    ) {
+                        newData.erase(newData.begin() + i);
+                        i--;
+                    }
+                    //TODO: fix extra space or tab after newline and before bracket
+                }
+
+                if (i == 0 && newData[i] == ' ') {
+                    newData.erase(newData.begin());
+                }
+
+                // avoiding overflowing size_t to max side after iteration ends
+                if (i == 0)
+                    break;
+            }
+
+            std::string result = std::string(newData.begin(), newData.end());
+            std::cout << "'" << result << "'" << std::endl; //TODO: remove it
+            return result;
         }
 
         std::string removeAllDuplicateEmptyLines(std::string const& data) const {
@@ -244,9 +272,7 @@ namespace ws {
             for (LineIter it = dataLines.begin(); it != dataLines.end(); it++) {
                 std::string key = getKey(*it);
                 if (!isValidKey(key)) {
-                    //TODO: refactor it
-                    throw ParsingException(
-                            std::string(std::string("Unknown keyword `") + key + std::string("`")).c_str());
+                    throw ParsingException(formatMessage("Unknown keyword `%s`", key.c_str()));
                 }
             }
 
@@ -263,21 +289,24 @@ namespace ws {
         }
 
         void checkingBrackets(std::string const& data) const {
-            char brackets[] = {'{', '}'};
-            std::stack<char> matches;
+            char                brackets[] = {'{', '}'};
+            size_t              line = 1;
+            std::stack<char>    matches;
 
             for (size_t i = 0; i < data.length(); i++) {
+                if (data[i] == '\n')
+                    line++;
                 if (data[i] == brackets[0]) {
                     matches.push(brackets[0]);
                 } else if (data[i] == brackets[1]) {
                     if (matches.empty()) {
-                        throw ParsingException("missing close bracket");
+                        throw ParsingException(formatMessage("missing close bracket"));
                     }
                     matches.pop();
                 }
             }
-            if (matches.size() != 0)
-                throw ParsingException("missing open bracket!");
+            if (!matches.empty())
+                throw ParsingException(formatMessage("missing open bracket"));
         }
 
         std::string getKey(std::string const& lineData) const {
@@ -301,10 +330,20 @@ namespace ws {
             }
         };
 
+        /*
+         * free msg (char*) before quitting
+         */
         class ParsingException : public std::exception {
-            const char* msg;
         public:
-            ParsingException(const char *message): msg(message) {}
+            char* msg;
+
+            /*
+             * message (char*) that holds exception description, should be allocated via malloc(3)
+             */
+            explicit ParsingException(char *message): msg(message) {
+
+            }
+
             virtual char const* what() const throw() {
                 if (!msg)
                     return "";
@@ -316,5 +355,6 @@ namespace ws {
     };
 
     char const* ws::Config::DEFAULT_CONFIG_PATH = "config/default.conf";
+    size_t      ws::Config::MINIMUM_CONFIG_SIZE = 10;
 
 } // namespace ws
