@@ -25,6 +25,7 @@ int     main( int argc, char **argv ) {
         return EXIT_FAILURE;
     } catch (ws::Config::ParsingException& e) {
         std::cerr << "ParsingException: " << e.what() << std::endl;
+        free(e.msg);
         return EXIT_FAILURE;
     }
 

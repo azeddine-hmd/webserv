@@ -41,6 +41,7 @@ namespace ws {
     };
 
     namespace parse {
+
         std::string validKeys[] = {
                 "listen",
                 "server_name",
@@ -62,6 +63,7 @@ namespace ws {
         };
 
         size_t keywordsLen = sizeof(parse::validKeys)/sizeof(*(parse::validKeys));
-    }
+
+    } // namespace parse
 
 } // namespace ws
