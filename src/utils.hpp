@@ -23,4 +23,15 @@ namespace ws {
         return (result);
     }
 
+    char* formatMessage(const char *fmt, ...) {
+        va_list args;
+        char*   output = NULL;
+
+        va_start(args,fmt);
+        vasprintf(&output, fmt, args);
+        va_end(args);
+
+        return output;
+    }
+
 }
