@@ -8,7 +8,7 @@ using namespace ws;
 
 cgi::cgi( Request ReqData ) {
     std::string root = "/home/mouad/schoolProjects/webserver/cgi/";
-    std::string ScriptName = "test.py";
+    std::string ScriptName = "GET.php";
     this->_ScriptPath = root + ScriptName;
     this->_Buffer = std::string();
     InitMetaVariables(ReqData);
@@ -54,52 +54,86 @@ void cgi::InitMetaVariables( Request Data ) {
 
 // https://stackoverflow.com/questions/12790328/how-to-silence-sys-excepthook-is-missing-error
 
-void     cgi::execWithGet( char *args[3], int fd[2]) {
-    // dup2(fd[0], 0);
+void     cgi::execWithGET( char *args[3], int fd[2]) {
 	dup2(fd[1], 1);
-    // close (fd[0]);
+    close (fd[1]);
+    std::cout << "------> " << args[0] << " " << args[1] << std::endl;
+    execve(args[0], args, environ);
+    std::cerr << "execve failed | errno: " << strerror(errno) << std::endl;
+    exit(errno);
+}
+
+int cgi::execWithPOST( char *args[3], int fd[2], int fd2[2], Request Data) {
+    struct pollfd   fds;
+    int             rc;
+
+    fds.fd = fd2[1];
+    fds.events = POLLOUT;
+    if ((rc = poll(&fds, 1, 0)) < 0)
+        return (0);
+    if (fds.revents & POLLOUT) 
+        write(fds.fd, Data._Query.c_str(), Data._Query.length());
+    dup2(fd2[0], 0);
+	dup2(fd[1], 1);
+    close (fd2[0]);
+    close(0);
+    close(fd2[1]);
     close (fd[1]);
     execve(args[0], args, environ);
     std::cerr << "execve failed | errno: " << strerror(errno) << std::endl;
     exit(errno);
 }
 
-cgi::ReturnValue     cgi::execute(Request Data) {
+cgi::ReturnType     cgi::execute(Request Data) {
     int     pid;
     int     fd[2];
+    int     fd2[2];
     struct pollfd fds;
-    // FILE    *file;
     char    *args[3] = {
         (char *)_ScriptType.c_str(),
         (char *)_ScriptPath.c_str(),
         NULL
     };
 
-    if (Data._Method == "GET")
-    {
+    if (Data._Method == "GET") {
         pipe(fd);
         pid = fork();
         if (pid < 0)
-            return (ReturnValue("500", _Error_));
+            return (ReturnType("500", _Error_));
         else if (pid == 0)
-            execWithGet(args, fd);
+            execWithGET(args, fd);
         close(fd[1]);
     }
-    // need to wait for child pid to be terminated
+    else if (Data._Method == "POST") {
+
+        pipe(fd);
+        pipe(fd2);
+        pid = fork();
+        if (pid < 0)
+            return (ReturnType("500", _Error_));
+        else if (pid == 0) {
+            if (!execWithPOST(args, fd, fd2, Data))
+                return (ReturnType("500", _Error_));
+        }
+        close(fd[1]);
+        close(fd2[0]);
+        close(fd2[1]);
+    }
+    // need to wait for child process to be terminated
         // - maybe later :)
-    // read executed program output and store it
+    // parse executed program output and store it
     fds.fd = fd[0];
     fds.events = POLLIN;
     char val;
     int rc;
     while (1) {
         if ((rc = poll(&fds, 1, 0)) < 0)  // poll ret 0 == timeout || < 0  == error
-                return (ReturnValue("500", _Error_));
+                return (ReturnType("500", _Error_));
         if (rc == 1 && fds.events & POLLIN ) {
             if (int count = read(fds.fd, &val, 1) < 1) {
                 if (count < 0) {
                     close(fd[0]);
-                    return (ReturnValue("500", _Error_));
+                    return (ReturnType("500", _Error_));
                 }
                 break;
             }
@@ -108,7 +142,7 @@ cgi::ReturnValue     cgi::execute(Request Data) {
     }
     close(fd[0]);
     // need to check if the script executed want to redirect (302 | 301) | err 500
-    return (ReturnValue("201", "HTTP/1.1 200 OK\r\n"));
+    return (ReturnType("201", "HTTP/1.1 200 OK\r\n"));
 }
 
 cgi::ValueType   cgi::GetBuffer( void ) {

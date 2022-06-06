@@ -20,7 +20,7 @@ int main()
 {
 
 	try {
-    	ws::Request ReqObj("GET","cgi-python", "name=mouad","text/html; charset=UTF-8", 15);
+    	ws::Request ReqObj("POST","cgi-python", "name=mouad","text/html; charset=UTF-8", 15);
     	ws::cgi CgiObj(ReqObj);
 		CgiObj.execute(ReqObj);
 		std::cout << CgiObj.GetBuffer() << std::endl;
@@ -28,6 +28,5 @@ int main()
 	catch (std::exception &event) {
 		std::cout << event.what() << std::endl;
 	}
-
     return (0);
 }

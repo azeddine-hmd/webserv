@@ -51,7 +51,7 @@ namespace ws {
 
 	class cgi {
 		private:
-			typedef typename std::pair<std::string, std::string>	ReturnValue;
+			typedef typename std::pair<std::string, std::string>	ReturnType;
 			typedef typename std::string							ValueType;
 			ValueType	_ScriptType;
 			ValueType	_ScriptPath;
@@ -62,9 +62,11 @@ namespace ws {
 			// cgi( Request ReqData, std::string root, std::string scriptName);
 			cgi( Request ReqData );
 			~cgi( void );
-			void InitMetaVariables( Request ReqData );
-			ReturnValue	execute( Request Data );
-			void		execWithGet( char *args[3], int fd[2]);
+
+			void 		InitMetaVariables( Request ReqData );
+			ReturnType	execute( Request Data );
+			void		execWithGET( char *args[3], int fd[2] );
+			int			execWithPOST( char *args[3], int fd[2], int fd2[2], Request Data );
 			ValueType	GetBuffer( void );
 
 
