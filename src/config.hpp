@@ -3,6 +3,9 @@
 #include <netinet/in.h>
 #include <unistd.h>
 #include <fstream>
+#include <stack>
+#include <cstring>
+
 #include "config_model.hpp"
 #include "utils.hpp"
 
@@ -10,7 +13,6 @@ namespace ws {
 
     class Config {
         typedef std::vector<std::string>::iterator      LineIter;
-        typedef std::vector<char>::iterator             CharIter;
 
     public:
         std::string                 path;
@@ -40,7 +42,7 @@ namespace ws {
          *      - PathException
          *      - ParsingException
          */
-        Config(std::string const& path): path(path) {
+        Config( std::string const& path ): path(path) {
             try {
                 init();
             } catch (PathException& e) {
@@ -82,7 +84,7 @@ namespace ws {
 //            return (all_server_block);
 //        }
 
-        std::vector<ServerBlock> parsingServerBlocks(std::string const& path) const {
+        std::vector<ServerBlock> parsingServerBlocks( std::string const& path ) const {
             std::ifstream fs(path.c_str());
             if (!fs) {
                 throw PathException();
@@ -115,14 +117,14 @@ namespace ws {
             return std::vector<ServerBlock>();
         }
 
-        std::vector<ServerBlock> getServersBlock(std::string const& data) const {
+        std::vector<ServerBlock> getServersBlock( std::string const& data ) const {
             std::vector<std::string> serversBlockData = getServersBlockData(data);
             //TODO: continue
 
             return std::vector<ServerBlock>();
         }
 
-        std::vector<std::string> getServersBlockData(std::string const& data) const {
+        std::vector<std::string> getServersBlockData( std::string const& data ) const {
             std::vector<std::string> serversBlockData;
 
             for (size_t i = 0; data[i]; i++) {
@@ -136,7 +138,7 @@ namespace ws {
             return serversBlockData;
         }
 
-        int64_t findEndOfServerBlockData(std::string const& data, size_t start) const {
+        int64_t findEndOfServerBlockData( std::string const& data, size_t start ) const {
             char brackets[] = {'{', '}'};
             std::stack<char> matches;
 
@@ -154,7 +156,7 @@ namespace ws {
             return -1;
         }
 
-        int64_t findBeginOfServerBlockData(std::string const& data, size_t start) const {
+        int64_t findBeginOfServerBlockData( std::string const& data, size_t start ) const {
             std::string const& keyword = "server";
             size_t i = 0;
             while ( data[i] && keyword[i] == data[start + i] ) {
@@ -172,11 +174,11 @@ namespace ws {
             return -1;
         }
 
-        std::string removeSpacesBeforeBrackets(std::string const& data) const {
+        std::string removeSpacesBeforeBrackets( std::string const& data ) const {
             std::vector<char> newData(data.begin(), data.end());
 
 
-            for (size_t i = newData.size() - 3; i >= 0; i--) {
+            for (int64_t i = static_cast<int64_t>(newData.size()) - 3; i >= 0; i--) {
 
                 if (newData[i + 1] == '{' || newData[i + 1] == '}') {
 
@@ -199,18 +201,18 @@ namespace ws {
                     break;
             }
 
-            std::string result = std::string(newData.begin(), newData.end());
+            std::string result = std::string(newData.begin(), newData.end() - 1);
             std::cout << "'" << result << "'" << std::endl; //TODO: remove it
             return result;
         }
 
-        std::string removeAllDuplicateEmptyLines(std::string const& data) const {
+        std::string removeAllDuplicateEmptyLines( std::string const& data ) const {
             std::vector<char> newData(data.begin(), data.end());
             newData.push_back('\0');
 
             for (size_t i = 0; newData[i]; i++) {
                 if (newData[i + 1] && newData[i] == '\n' && newData[i + 1] == '\n') {
-                    newData.erase(  newData.begin() + static_cast<size_t>(i) );
+                    newData.erase(  newData.begin() + static_cast<int64_t>(i) );
                     i--;
                 }
             }
@@ -225,21 +227,25 @@ namespace ws {
             std::string newData;
 
             size_t i = 0;
+            size_t dataLen = data.length();
             // iterator from beginning until the end
-            while (i < data.length()) {
+            while (i < dataLen) {
                 // skip characters
                 if (isAtEndOfLine(data, i)) {
-                    while (i < data.length() && data[i] != '\n') {
+                    while ( i < dataLen && data[i] != '\n' ) {
                         i++;
                     }
                 }
                 newData += data[i];
                 i++;
             }
-            // iterator from the end until beginning
-            i = newData.length() - 1;
-            while (i >= 0 && ( newData[i] == ' ' || newData[i] == '\t')) {
+            // remove whitespaces from last line
+            i = newData.size() - 1;
+            while (i > 0 && ( newData[i] == ' ' || newData[i] == '\t')) {
                 newData.pop_back();
+                if ( i == 0 && (newData[i] == ' ' || newData[i] == '\t') ) {
+                    break;
+                }
             }
             return newData;
         }

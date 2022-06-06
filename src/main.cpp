@@ -1,4 +1,6 @@
 #include <iostream>
+#include <csignal>
+
 #include "config.hpp"
 #include "application.hpp"
 
