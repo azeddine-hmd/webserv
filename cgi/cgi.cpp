@@ -76,7 +76,6 @@ int cgi::execWithPOST( char *args[3], int fd[2], int fd2[2], Request Data) {
     dup2(fd2[0], 0);
 	dup2(fd[1], 1);
     close (fd2[0]);
-    close(0);
     close(fd2[1]);
     close (fd[1]);
     execve(args[0], args, environ);
