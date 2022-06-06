@@ -1,6 +1,6 @@
 NAME = server
 
-CC = clang++
+CC = c++
 
 FLAGS = -Wall -Werror -Wextra
 FLAGS_UNUSED = -Wall -Werror -Wextra -Wno-unused-variable -Wno-unused-parameter
@@ -29,7 +29,7 @@ client: clean
 clean:
 	@rm -f $(OBJ) $(CLIENT_OBJ) $(NAME) client
 
-test_config: test/config.cpp
+test_config: tests/config.cpp
 	@$(CC) $(FLAGS_DEBUG_UNUSED) $< -o tester
 
 re: clean all
