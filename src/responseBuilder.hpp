@@ -45,7 +45,8 @@ class ResponseBuilder
             // + MimeTypes::getType(path.c_str()) + std::string("\r\nContent-Length: ")
             // + std::to_string(getContentLength()) + std::string("\r\n\r\n");
             const char* mime = MimeTypes::getType(path.c_str());
-            write(_req.getFd(), "HTTP/1.1 200 OK\r\nContent-Type: ", 31);
+            write(_req.getFd(), _req.getHeader("Version").c_str(), _req.getHeader("Version").size());
+            write(_req.getFd(), " 200 OK\r\nContent-Type: ", 23);
             write(_req.getFd(), mime, strlen(mime));
             write(_req.getFd(), "\r\nContent-Length: ", 18);
             write(_req.getFd(), fileS.c_str(), fileS.length());

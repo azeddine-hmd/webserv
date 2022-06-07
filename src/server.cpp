@@ -10,7 +10,7 @@
 #include "request.hpp"
 #include "responseBuilder.hpp"
 
-#define PORT 8081
+#define PORT 8080
 
 class Server {
     private:
@@ -88,7 +88,7 @@ int main(int argc, char const *argv[])
     std::vector<Request> active;
     std::vector<Server> listen_s;
 
-    signal(SIGINT, closePort);
+    //signal(SIGINT, closePort);
     Server s1(PORT);
     listen_s.push_back(s1.getFd());
     fd_set master_read, master_write;
@@ -104,10 +104,13 @@ int main(int argc, char const *argv[])
         fd_set copy_write = master_write;
         select(1024, &copy_read, &copy_write, nullptr, &tv);
         int i = 0;
+        //std::cout << active.size() <<std::endl;
         while(i < active.size())
         {
+            
             if(FD_ISSET( active[i].getFd(), &copy_read ))
             {
+                // std::cout << active.size() <<std::endl;
                 active[i].readChunk();
                 if(active[i].getStatus())
                 {

@@ -1,28 +1,18 @@
 #ifndef REQ_HPP
 #define REQ_HPP
 
-#include <string>
 #include <map>
 #include <iostream>
 #include <fstream>
 #include <unistd.h>
 #include <sstream>
 #include <cstdlib>
-#include <ctime>
-
-#include <fcntl.h>
+#include "chunkedDecoder.hpp"
 
 
 std::string getNextLine(std::string& buffer);
 #define BUFFER_SIZE 1024
 
-
-struct BodyFile
-{
-	public:
-		int 		fd;
-		std::string name;
-};
 
 
 class Request
@@ -34,6 +24,8 @@ class Request
 		bool								_HeaderDone; // true after parsing the headers
 		bool								_RequestDone; // true when req is done
 		BodyFile							_BodyFile;
+		size_t								_bodySize;	
+		size_t								_targetSize;							
 
 		Request( void ) {
 
@@ -75,7 +67,14 @@ class Request
 			int ret = read(_SockFd, buf, BUFFER_SIZE * 10);
 			_BodyBuffer = std::string(buf, ret);
 			parseFirstLine();
+			
 			while(parseParam() != -1);
+			if(_Headers.find("Content-Length") != _Headers.end())
+			{
+				std::istringstream iss(_Headers["Content-Length"]);
+				iss >> _targetSize;
+				// = std::stol(_Headers["Content-Length"]);
+			}
 			_HeaderDone = true;
 			if(_Headers["Method"] != "POST")
 			{
@@ -86,6 +85,7 @@ class Request
 			{
 				CreateFile();
 				write(_BodyFile.fd, _BodyBuffer.c_str(), _BodyBuffer.size());
+				_bodySize = _BodyBuffer.size();
 			}
 		}
 		// get a parameter by key
@@ -121,15 +121,23 @@ class Request
 			{
 				char buf[BUFFER_SIZE];
 				int ret = read(_SockFd, buf, BUFFER_SIZE);
+				_bodySize += ret;
+				//34756650
+				//34746613
+				// std::cout << _Headers["Content-Length"] << " : " << _bodySize << std::endl;
 				if(ret > 0)
 				{
 					if(_BodyFile.fd == -1)
 						CreateFile();
 					write(_BodyFile.fd, buf, ret);
+					//std::cout << ret << std::endl;
+					
 				}
-				if(ret != BUFFER_SIZE)
+				if(_bodySize == _targetSize)
 				{
 					_RequestDone = true;
+					std::cout << "done" << std::endl;
+					// exit(0);	
 					return;
 				}
 			}
@@ -139,5 +147,4 @@ class Request
 			}
 		}
 };
-
 #endif
