@@ -12,7 +12,9 @@
 namespace ws {
 
     class Config {
-        typedef std::vector<std::string>::iterator      LineIter;
+        typedef std::vector<std::string>::iterator                              LineIter;
+        typedef  std::map<std::string, std::vector<std::string> >::iterator     MapIter;
+        typedef std::pair<MapIter, bool>                                        MapResult;
 
     public:
         std::string                 path;
@@ -86,15 +88,31 @@ namespace ws {
                 throw ParsingException(formatMessage("file config too small"));
 
             // removing unnecessary information from data string for easy parsing later
-            data = removeAllComments(data);
+            data = removeAllComments(data); // also whitespaces at end of line
             data = removeAllDuplicateEmptyLines(data);
             data = removeSpacesBeforeBrackets(data);
             data = removingWhitespacesAtBeginningOfLine(data);
+            replaceAllTabsWithSpaces(data);
 
             try { checkingConfigSyntaxError(data); } catch (ParsingException& e) { throw e; }
 
             std::vector<ServerBlock> serversBlocks = getServersBlocks(data);
             //TODO: implement fillDataInStruct(serversBlocks)
+
+            return serversBlocks;
+        }
+
+        std::vector<ServerBlock> getServersBlocks(std::string const& data ) const {
+            std::vector<ServerBlock> serversBlocks;
+            std::vector<std::string> serversBlocksData = getServersBlocksData(data);
+            try { checkingEmptyServerBlock(serversBlocksData); } catch (ParsingException& e) { throw e; }
+
+            for (size_t i = 0; i < serversBlocksData.size(); i++) {
+                ServerBlock serverBlock;
+                std::map<std::string, std::vector<std::string> > dataKeyValue = getServerBlockKeyValue(serversBlocksData[i]);
+                serverBlock.dataKeyValue = dataKeyValue;
+                serversBlocks.push_back(serverBlock);
+            }
 
             return serversBlocks;
         }
@@ -129,25 +147,14 @@ namespace ws {
 //            return my_map;
 //        }
 
-        std::vector<ServerBlock> getServersBlocks(std::string const& data ) const {
-            std::vector<ServerBlock> serversBlocks;
-            std::vector<std::string> serversBlocksData = getServersBlocksData(data);
-            try { checkingEmptyServerBlock(serversBlocksData); } catch (ParsingException& e) { throw e; }
-
-            for (size_t i = 0; i < serversBlocksData.size(); i++) {
-                ServerBlock serverBlock;
-                std::map<std::string, std::vector<std::string> > dataKeyValue = getServerBlockKeyValue(serversBlocksData[i]);
-                serverBlock.dataKeyValue = dataKeyValue;
-                serversBlocks.push_back(serverBlock);
-            }
-
-            return serversBlocks;
-        }
-
         std::map<std::string, std::vector<std::string> > getServerBlockKeyValue( std::string const& serverBlockData ) const {
+            std::map<std::string, std::vector<std::string> > dataKeyValue;
+
             size_t i = 0;
             while (i < serverBlockData.size()) {
                 std::string line;
+                char brackets[] = {'{', '}'};
+                std::stack<char> matches;
 
                 // get line from string
                 size_t j = i;
@@ -156,13 +163,59 @@ namespace ws {
                     j++;
                 }
                 i = ++j;
-
-                //TODO: continue
                 std::string key = getKeyInLine(line);
-                std::vector<std::string> value = getValueInLine(line);
+                std::vector<std::string> values = getValuesInLine(line);
+
+                // checking key
+                if (key.empty()) {
+                    continue;
+                } else if (key == "{" && !values.empty()) {
+                    throw ParsingException(formatMessage("found key after brackets"));
+                } else if (key == "{" && values.empty()) {
+                    matches.push(brackets[0]);
+                    continue;
+                } else if (key == "}" && values.empty()) {
+                    matches.pop();
+                    continue;
+                } else if (key != "{"
+                    && key != "}"
+                    && (values.empty() || values.front() == "{" || values.front() == "}")
+                ) {
+                    throw ParsingException(formatMessage("key `%s` lacks value", key.c_str()));
+                }
+
+                // checking values
+                if (!values.empty() && values.back() == "}") {
+                    values.pop_back();
+                    matches.pop();
+                } else if (!values.empty() && values.back() == "{") {
+                    values.pop_back();
+                    matches.push(brackets[0]);
+                }
+                for (size_t i = 0; i < values.size(); i++) {
+                    if (i > 0 && i < values.size() - 1 && (values[i] == "{" || values[i] == "}") ) {
+                        throw ParsingException(formatMessage("found brackets between values"));
+                    }
+                }
+
+                std::pair<std::string, std::vector<std::string> > pair = std::make_pair(key, values);
+                if (matches.empty() && key != "location" && !dataKeyValue.insert(pair).second ) {
+                    throw ParsingException(formatMessage("duplicate keyword `%s` were found", pair.first.c_str()));
+                }
             }
 
-            return std::map<std::string, std::vector<std::string> >();
+            // debugging
+            for (auto keyValue : dataKeyValue) {
+                std::cout << "key: " << keyValue.first << ", values: [";
+                for (size_t i = 0; i < keyValue.second.size(); i++) {
+                    if (i != 0)
+                        std::cout << ", ";
+                    std::cout << keyValue.second[i];
+                }
+                std::cout << "]" << std::endl;
+            }
+
+            return dataKeyValue;
         }
 
         std::vector<std::string> getServersBlocksData( std::string const& data ) const {
@@ -226,6 +279,13 @@ namespace ws {
             }
 
             return -1;
+        }
+
+        void replaceAllTabsWithSpaces(std::string& data) const {
+            for (size_t i = 0; i < data.size(); i++) {
+                if (data[i] == '\t')
+                    data[i] = ' ';
+            }
         }
 
         std::string removeSpacesBeforeBrackets( std::string const& data ) const {
@@ -394,13 +454,17 @@ namespace ws {
                 throw ParsingException(formatMessage("missing open bracket on line..., who needs line number just count them yourself and considered as eyes exercise"));
         }
 
-        std::vector<std::string> getValueInLine( std::string const& line ) const {
+        std::vector<std::string> getValuesInLine( std::string const& line ) const {
             size_t i = 0;
-            while ( i < line.size() && (line[i] != ' ' && line[i] != '\t') )
+            while ( i < line.size() && !isWhitespace(line[i]) )
                 i++;
-            while ( i)
+            while (i < line.size() && isWhitespace(line[i]) )
+                i++;
+            std::string valueData(line.begin() + i, line.end());
 
-            return std::vector<std::string>();
+            std::vector<std::string> values = split(valueData, " ");
+
+            return values;
         }
 
         std::string getKeyInLine(std::string const& lineData ) const {
@@ -414,6 +478,12 @@ namespace ws {
             }
 
             return key;
+        }
+
+        bool isWhitespace(char c) const {
+            if (c == ' ' || c == '\t')
+                return true;
+            return false;
         }
 
     public:

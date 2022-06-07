@@ -38,13 +38,18 @@ namespace ws {
         return output;
     }
 
-    void printError( char const* err, ... ) {
+    void printError( size_t len, char const* err, ... ) {
         va_list args;
+
 
         va_start(args, err);
         std::cerr << COLORS_RED_BOLD << err;
-        while ( char const* s = va_arg(args, char const*) )
+        len--;
+        while ( len-- ) {
+            char const* s = va_arg(args, char const*);
             std::cerr << s;
+        }
+
         std::cerr << COLORS_DEFAULT << std::endl;
         va_end(args);
     }
