@@ -4,9 +4,12 @@
 #include <string>
 #include <cstdarg>
 
+# define COLORS_RED_BOLD "\033[1;031m"
+# define COLORS_DEFAULT "\033[0;0m"
+
 namespace ws {
 
-    std::vector<std::string> split( std::string const& s, std::string const delim) {
+    std::vector<std::string> split( std::string const& s, std::string const delim ) {
         std::vector<std::string> result;
         size_t index = s.find(delim);
         size_t position = 0;
@@ -24,7 +27,7 @@ namespace ws {
         return (result);
     }
 
-    char* formatMessage(const char *fmt, ...) {
+    char* formatMessage( const char *fmt, ... ) {
         va_list args;
         char*   output = NULL;
 
@@ -33,6 +36,17 @@ namespace ws {
         va_end(args);
 
         return output;
+    }
+
+    void printError( char const* err, ... ) {
+        va_list args;
+
+        va_start(args, err);
+        std::cerr << COLORS_RED_BOLD << err;
+        while ( char const* s = va_arg(args, char const*) )
+            std::cerr << s;
+        std::cerr << COLORS_DEFAULT << std::endl;
+        va_end(args);
     }
 
 }

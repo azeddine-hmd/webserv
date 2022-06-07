@@ -23,10 +23,10 @@ int     main( int argc, char **argv ) {
     try {
         config = (argc == 1) ? new ws::Config() : new ws::Config(argv[1]);
     } catch (ws::Config::PathException& e) {
-        std::cerr << "PathException: " << e.what() << std::endl;
+        ws::printError("config error: ", e.what());
         return EXIT_FAILURE;
     } catch (ws::Config::ParsingException& e) {
-        std::cerr << "ParsingException: " << e.what() << std::endl;
+        ws::printError("parsing error: ", e.what());
         free(e.msg);
         return EXIT_FAILURE;
     }

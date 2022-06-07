@@ -68,22 +68,6 @@ namespace ws {
             }
         }
 
-//TODO: remove it
-//        std::vector<Server_block> parsse_the_config_file(std::string path){
-//            std::string data, line;
-//            Server_block block;
-//            std::ifstream path_stream(path.c_str());
-//            while (getline(path_stream, line)){
-//                data += line;
-//                data += "\n";
-//            }
-//            data = remove_all_comment(data);
-//            check_error_in_file(data);
-//            std::vector<Server_block> all_server_block = get_all_server_blocks(data);
-//            fill_data_in_struct(all_server_block);
-//            return (all_server_block);
-//        }
-
         std::vector<ServerBlock> parsingServerBlocks( std::string const& path ) const {
             std::ifstream fs(path.c_str());
             if (!fs) {
@@ -96,6 +80,7 @@ namespace ws {
                 data += line;
                 data += "\n";
             }
+            fs.close();
 
             if (data.size() < MINIMUM_CONFIG_SIZE)
                 throw ParsingException(formatMessage("file config too small"));
@@ -104,38 +89,107 @@ namespace ws {
             data = removeAllComments(data);
             data = removeAllDuplicateEmptyLines(data);
             data = removeSpacesBeforeBrackets(data);
+            data = removingWhitespacesAtBeginningOfLine(data);
 
-            try {
-                checkingConfigSyntaxError(data);
-            } catch (ParsingException& e) {
-                throw e;
+            try { checkingConfigSyntaxError(data); } catch (ParsingException& e) { throw e; }
+
+            std::vector<ServerBlock> serversBlocks = getServersBlocks(data);
+            //TODO: implement fillDataInStruct(serversBlocks)
+
+            return serversBlocks;
+        }
+
+//TODO: remove it
+//        std::map<std::string, std::string> get_server_data(std::string data){
+//            int i = 0;
+//            int count = 0;
+//            std::map<std::string, std::string> my_map;
+//            int size = data.size();
+//            while (i < size){
+//                std::string line;
+//                int j = i;
+//                while (j < size && data[j] != '\n'){
+//                    line += data[j];
+//                    j++;
+//                }
+//                i = ++j;
+//                std::string key = get_key_from_line(line);
+//                std::string value = get_value_from_line(line);
+//                std::pair<std::string, std::string> p = std::make_pair(key, value);
+//                if (key == "{")
+//                    count++;
+//                else if (key == "}")
+//                    count--;
+//                else if (count == 0 && key != "" && key != "location" ){
+//                    if (value == "" || my_map.insert(p).second == false){
+//                        throw "There is error in the server block";
+//                    }
+//                }
+//            }
+//            return my_map;
+//        }
+
+        std::vector<ServerBlock> getServersBlocks(std::string const& data ) const {
+            std::vector<ServerBlock> serversBlocks;
+            std::vector<std::string> serversBlocksData = getServersBlocksData(data);
+            try { checkingEmptyServerBlock(serversBlocksData); } catch (ParsingException& e) { throw e; }
+
+            for (size_t i = 0; i < serversBlocksData.size(); i++) {
+                ServerBlock serverBlock;
+                std::map<std::string, std::vector<std::string> > dataKeyValue = getServerBlockKeyValue(serversBlocksData[i]);
+                serverBlock.dataKeyValue = dataKeyValue;
+                serversBlocks.push_back(serverBlock);
             }
 
-            std::vector<ServerBlock> serverBlock = getServersBlock(data);
-
-            fs.close();
-            return std::vector<ServerBlock>();
+            return serversBlocks;
         }
 
-        std::vector<ServerBlock> getServersBlock( std::string const& data ) const {
-            std::vector<std::string> serversBlockData = getServersBlockData(data);
-            //TODO: continue
+        std::map<std::string, std::vector<std::string> > getServerBlockKeyValue( std::string const& serverBlockData ) const {
+            size_t i = 0;
+            while (i < serverBlockData.size()) {
+                std::string line;
 
-            return std::vector<ServerBlock>();
+                // get line from string
+                size_t j = i;
+                while (j < serverBlockData.size() && serverBlockData[j] != '\n') {
+                    line += serverBlockData[j];
+                    j++;
+                }
+                i = ++j;
+
+                //TODO: continue
+                std::string key = getKeyInLine(line);
+                std::vector<std::string> value = getValueInLine(line);
+            }
+
+            return std::map<std::string, std::vector<std::string> >();
         }
 
-        std::vector<std::string> getServersBlockData( std::string const& data ) const {
-            std::vector<std::string> serversBlockData;
+        std::vector<std::string> getServersBlocksData( std::string const& data ) const {
+            std::vector<std::string> serversBlocksData;
 
             for (size_t i = 0; data[i]; i++) {
                 int64_t start = findBeginOfServerBlockData(data, i);
                 if (start != -1) {
                     int64_t end = findEndOfServerBlockData(data, start);
-                    serversBlockData.push_back(data.substr(start, end - start  + 1));
+                    serversBlocksData.push_back(data.substr(start, end - start  + 1));
                 }
             }
 
-            return serversBlockData;
+            return serversBlocksData;
+        }
+
+        void checkingEmptyServerBlock(std::vector<std::string>& serversBlocksData) const {
+            for (LineIter line = serversBlocksData.begin(); line != serversBlocksData.end(); line++) {
+                std::string const& serverBlock = *line;
+                bool isEmpty = true;
+                for (size_t i = 0; i < serverBlock.size(); i++) {
+                    if (serverBlock[i] != ' ' && serverBlock[i] != '\t' && serverBlock[i] != '\n')
+                        isEmpty = false;
+                }
+                if (isEmpty)
+                    throw ParsingException(formatMessage("found empty server block"));
+            }
         }
 
         int64_t findEndOfServerBlockData( std::string const& data, size_t start ) const {
@@ -189,7 +243,7 @@ namespace ws {
                         newData.erase(newData.begin() + i);
                         i--;
                     }
-                    //TODO: fix extra space or tab after newline and before bracket
+
                 }
 
                 if (i == 0 && newData[i] == ' ') {
@@ -201,9 +255,7 @@ namespace ws {
                     break;
             }
 
-            std::string result = std::string(newData.begin(), newData.end() - 1);
-            std::cout << "'" << result << "'" << std::endl; //TODO: remove it
-            return result;
+            return std::string(newData.begin(), newData.end() - 1);
         }
 
         std::string removeAllDuplicateEmptyLines( std::string const& data ) const {
@@ -217,13 +269,15 @@ namespace ws {
                 }
             }
 
-            return std::string(newData.begin(), newData.end());
+            std::string result = std::string(newData.begin(), newData.end() - 1);
+
+            return result;
         }
 
         // symbols for starting comments are ';' and '#'.
         // How it work? by adding character after character from old data to a newer one but this time skipping
         // characters that considered part of comments.
-        std::string removeAllComments(std::string& data) const {
+        std::string removeAllComments( std::string& data ) const {
             std::string newData;
 
             size_t i = 0;
@@ -250,8 +304,37 @@ namespace ws {
             return newData;
         }
 
+        std::string removingWhitespacesAtBeginningOfLine( std::string const& data ) const {
+            std::vector<std::string> newDataLines;
+            std::vector<std::string> dataLines = split(data, "\n");
+
+
+            for (LineIter lineIter = dataLines.begin(); lineIter != dataLines.end(); lineIter++) {
+                std::string const &line = *lineIter;
+
+                size_t i = 0;
+                while (i < line.size() && (line[i] == ' ' || line[i] == '\t'))
+                    i++;
+                std::string newLine;
+                while (i < line.size()) {
+                    newLine += line[i];
+                    i++;
+                }
+                newDataLines.push_back(newLine);
+            }
+
+            // joining all lines together to form a single string
+            std::string newData;
+            for (LineIter lineIter = newDataLines.begin(); lineIter != newDataLines.end(); lineIter++) {
+                newData += *lineIter;
+                newData += "\n";
+            }
+
+            return newData;
+        }
+
         // 'End' in function name means last important character in a line or file
-        bool isAtEndOfLine(std::string& data, size_t i) const {
+        bool isAtEndOfLine( std::string& data, size_t i ) const {
             if (data[i] == '#' || data[i] == ';') {
                 return true;
             } else if (data[i] == ' ') {
@@ -266,17 +349,13 @@ namespace ws {
             return false;
         }
 
-        void checkingConfigSyntaxError(std::string const& data) const {
-            try {
-                checkingBrackets(data);
-            } catch (ParsingException& e) {
-                throw e;
-            }
+        void checkingConfigSyntaxError( std::string const& data ) const {
+            try { checkingBrackets(data); } catch (ParsingException& e) { throw e; }
 
             // checking valid keys
             std::vector<std::string> dataLines = split(data, "\n");
             for (LineIter it = dataLines.begin(); it != dataLines.end(); it++) {
-                std::string key = getKey(*it);
+                std::string key = getKeyInLine(*it);
                 if (!isValidKey(key)) {
                     throw ParsingException(formatMessage("Unknown keyword `%s`", key.c_str()));
                 }
@@ -284,7 +363,7 @@ namespace ws {
 
         }
 
-        bool isValidKey(std::string const& key) const {
+        bool isValidKey( std::string const& key ) const {
             bool isEqual = false;
             for (size_t i = 0; i < parse::keywordsLen; i++) {
                 if (key == parse::validKeys[i])
@@ -294,7 +373,7 @@ namespace ws {
             return isEqual;
         }
 
-        void checkingBrackets(std::string const& data) const {
+        void checkingBrackets( std::string const& data ) const {
             char                brackets[] = {'{', '}'};
             size_t              line = 1;
             std::stack<char>    matches;
@@ -306,16 +385,25 @@ namespace ws {
                     matches.push(brackets[0]);
                 } else if (data[i] == brackets[1]) {
                     if (matches.empty()) {
-                        throw ParsingException(formatMessage("missing close bracket"));
+                        throw ParsingException(formatMessage("missing close bracket on line..., who needs line number just fix it yourself and considered as eyes exercise"));
                     }
                     matches.pop();
                 }
             }
             if (!matches.empty())
-                throw ParsingException(formatMessage("missing open bracket"));
+                throw ParsingException(formatMessage("missing open bracket on line..., who needs line number just count them yourself and considered as eyes exercise"));
         }
 
-        std::string getKey(std::string const& lineData) const {
+        std::vector<std::string> getValueInLine( std::string const& line ) const {
+            size_t i = 0;
+            while ( i < line.size() && (line[i] != ' ' && line[i] != '\t') )
+                i++;
+            while ( i)
+
+            return std::vector<std::string>();
+        }
+
+        std::string getKeyInLine(std::string const& lineData ) const {
             std::string key;
             size_t i = 0;
             while ( lineData[i] && (lineData[i] == ' ' || lineData[i] == '\t') )
@@ -346,7 +434,7 @@ namespace ws {
             /*
              * message (char*) that holds exception description, should be allocated via malloc(3)
              */
-            explicit ParsingException(char *message): msg(message) {
+            explicit ParsingException( char *message ): msg(message) {
 
             }
 
