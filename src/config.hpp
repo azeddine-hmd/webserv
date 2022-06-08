@@ -12,7 +12,7 @@
 namespace ws {
 
     class Config {
-        typedef std::vector<std::string>::iterator                              LineIter;
+        typedef std::vector<std::string>::iterator  LineIter;
 
     public:
         std::string                 path;
@@ -102,8 +102,14 @@ namespace ws {
 
         std::vector<ServerBlock> getServersBlocks(std::string const& data ) const {
             std::vector<ServerBlock> serversBlocks;
-            std::vector<std::string> serversBlocksData = getServersBlocksData(data);
-            try { checkingEmptyServerBlock(serversBlocksData); } catch (ParsingException& e) { throw e; }
+
+            std::vector<std::string> serversBlocksData;
+            try {
+                serversBlocksData = getServersBlocksData(data);
+                checkingEmptyBlock(serversBlocksData);
+            } catch (ParsingException& e) {
+                throw e;
+            }
 
             for (size_t i = 0; i < serversBlocksData.size(); i++) {
                 ServerBlock serverBlock;
@@ -112,9 +118,14 @@ namespace ws {
                 std::map<std::string, std::vector<std::string> > dataKeyValue = getServerBlockKeyValue(serversBlocksData[i]);
                 serverBlock.dataKeyValue = dataKeyValue;
 
-                //TODO: get location block data
-                // parsing location block
-                std::vector<std::string> locationBlockData = getLocationBlocksData(serversBlocksData[i]);
+                std::vector<std::string> locationBlockData;
+                try {
+                    locationBlockData = getLocationBlocksData(serversBlocksData[i]);
+                    checkingEmptyBlock(locationBlockData);
+                } catch (ParsingException& e) {
+                    throw e;
+                }
+                //TODO: continue
 
                 serversBlocks.push_back(serverBlock);
             }
@@ -126,14 +137,43 @@ namespace ws {
             std::vector<std::string> locationBlocksData;
 
             for (size_t i = 0; data[i]; i++) {
-                int64_t start = findBeginOfKeywordBlock(data, "location", i);
+
+                int64_t start = findFirstIndexOfLocationBlock(data, i);
                 if (start != -1) {
-                    int64_t end = findEndOfKeywordBlock(data, start);
+                    int64_t end = findLastIndexOfLocationBlock(data, start);
+                    if (end == -1) {
+                        throw ParsingException(formatMessage("there was an error in location block"));
+                    }
                     locationBlocksData.push_back(data.substr(start, end - start  + 1));
+                }
+
+            }
+
+            return locationBlocksData;
+        }
+
+        int64_t findFirstIndexOfLocationBlock( std::string const& data, size_t start ) const {
+            std::string const& keyword = "location ";
+
+            size_t i = 0;
+            while ( data[i] && keyword[i] == data[start + i] ) {
+                i++;
+            }
+
+            if (i == 9) {
+                i += start;
+                while (i < data.size() && i ) {
+                    //TODO: please fill this form
                 }
             }
 
-            return serversBlocksData;
+            return -1;
+        }
+
+        int64_t findLastIndexOfLocationBlock( std::string const& data, size_t start ) const {
+            //TODO: implement
+
+            return -1;
         }
 
         std::map<std::string, std::vector<std::string> > getServerBlockKeyValue( std::string const& serverBlockData ) const {
@@ -208,22 +248,27 @@ namespace ws {
             std::vector<std::string> serversBlocksData;
 
             for (size_t i = 0; data[i]; i++) {
-                int64_t start = findBeginOfKeywordBlock(data, "server", i);
+
+                int64_t start = findStartingIndexOfServerBlock(data, i);
                 if (start != -1) {
-                    int64_t end = findEndOfKeywordBlock(data, start);
+                    int64_t end = findLastIndexOfBlock(data, start);
+                    if (end == -1) {
+                        throw ParsingException(formatMessage("There was an error inside server block"));
+                    }
                     serversBlocksData.push_back(data.substr(start, end - start  + 1));
                 }
+
             }
 
             return serversBlocksData;
         }
 
-        void checkingEmptyServerBlock(std::vector<std::string>& serversBlocksData) const {
-            for (LineIter line = serversBlocksData.begin(); line != serversBlocksData.end(); line++) {
-                std::string const& serverBlock = *line;
+        void checkingEmptyBlock(std::vector<std::string>& blockData) const {
+            for (LineIter line = blockData.begin(); line != blockData.end(); line++) {
+                std::string const& blockLine = *line;
                 bool isEmpty = true;
-                for (size_t i = 0; i < serverBlock.size(); i++) {
-                    if (serverBlock[i] != ' ' && serverBlock[i] != '\t' && serverBlock[i] != '\n')
+                for (size_t i = 0; i < blockLine.size(); i++) {
+                    if (blockLine[i] != ' ' && blockLine[i] != '\t' && blockLine[i] != '\n')
                         isEmpty = false;
                 }
                 if (isEmpty)
@@ -231,7 +276,7 @@ namespace ws {
             }
         }
 
-        int64_t findEndOfKeywordBlock( std::string const& data, size_t start ) const {
+        int64_t findLastIndexOfBlock( std::string const& data, size_t start ) const {
             char brackets[] = {'{', '}'};
             std::stack<char> matches;
 
@@ -249,8 +294,9 @@ namespace ws {
             return -1;
         }
 
-        // find keyword and skip until reaching open bracket reached
-        int64_t findBeginOfKeywordBlock( std::string const& data, std::string const& keyword, size_t start ) const {
+        int64_t findStartingIndexOfServerBlock( std::string const& data, size_t start ) const {
+            std::string const& keyword = "server";
+
             size_t i = 0;
             while ( data[i] && keyword[i] == data[start + i] ) {
                 i++;
