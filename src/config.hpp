@@ -13,8 +13,6 @@ namespace ws {
 
     class Config {
         typedef std::vector<std::string>::iterator                              LineIter;
-        typedef  std::map<std::string, std::vector<std::string> >::iterator     MapIter;
-        typedef std::pair<MapIter, bool>                                        MapResult;
 
     public:
         std::string                 path;
@@ -117,36 +115,6 @@ namespace ws {
             return serversBlocks;
         }
 
-//TODO: remove it
-//        std::map<std::string, std::string> get_server_data(std::string data){
-//            int i = 0;
-//            int count = 0;
-//            std::map<std::string, std::string> my_map;
-//            int size = data.size();
-//            while (i < size){
-//                std::string line;
-//                int j = i;
-//                while (j < size && data[j] != '\n'){
-//                    line += data[j];
-//                    j++;
-//                }
-//                i = ++j;
-//                std::string key = get_key_from_line(line);
-//                std::string value = get_value_from_line(line);
-//                std::pair<std::string, std::string> p = std::make_pair(key, value);
-//                if (key == "{")
-//                    count++;
-//                else if (key == "}")
-//                    count--;
-//                else if (count == 0 && key != "" && key != "location" ){
-//                    if (value == "" || my_map.insert(p).second == false){
-//                        throw "There is error in the server block";
-//                    }
-//                }
-//            }
-//            return my_map;
-//        }
-
         std::map<std::string, std::vector<std::string> > getServerBlockKeyValue( std::string const& serverBlockData ) const {
             std::map<std::string, std::vector<std::string> > dataKeyValue;
             std::stack<char> matches;
@@ -211,17 +179,6 @@ namespace ws {
                     matches.pop();
                 }
             }
-
-            // debugging
-//            for (auto keyValue : dataKeyValue) {
-//                std::cout << "key: " << keyValue.first << ", values: [";
-//                for (size_t i = 0; i < keyValue.second.size(); i++) {
-//                    if (i != 0)
-//                        std::cout << ", ";
-//                    std::cout << keyValue.second[i];
-//                }
-//                std::cout << "]" << std::endl;
-//            }
 
             return dataKeyValue;
         }
@@ -500,7 +457,7 @@ namespace ws {
             virtual char const* what() const throw() {
                 return strerror(errno);
             }
-        };
+        }; // class PathException
 
         /*
          * free msg (char*) before quitting
@@ -522,9 +479,9 @@ namespace ws {
                 else
                     return msg;
             }
-        };
+        }; // class ParsingException
 
-    };
+    }; // class Config
 
     char const* ws::Config::DEFAULT_CONFIG_PATH = "config/default.conf";
     size_t      ws::Config::MINIMUM_CONFIG_SIZE = 10;
