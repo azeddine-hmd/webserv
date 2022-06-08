@@ -107,12 +107,33 @@ namespace ws {
 
             for (size_t i = 0; i < serversBlocksData.size(); i++) {
                 ServerBlock serverBlock;
+
+                // parsing server block
                 std::map<std::string, std::vector<std::string> > dataKeyValue = getServerBlockKeyValue(serversBlocksData[i]);
                 serverBlock.dataKeyValue = dataKeyValue;
+
+                //TODO: get location block data
+                // parsing location block
+                std::vector<std::string> locationBlockData = getLocationBlocksData(serversBlocksData[i]);
+
                 serversBlocks.push_back(serverBlock);
             }
 
             return serversBlocks;
+        }
+
+        std::vector<std::string> getLocationBlocksData(std::string const& data) const {
+            std::vector<std::string> locationBlocksData;
+
+            for (size_t i = 0; data[i]; i++) {
+                int64_t start = findBeginOfKeywordBlock(data, "location", i);
+                if (start != -1) {
+                    int64_t end = findEndOfKeywordBlock(data, start);
+                    locationBlocksData.push_back(data.substr(start, end - start  + 1));
+                }
+            }
+
+            return serversBlocksData;
         }
 
         std::map<std::string, std::vector<std::string> > getServerBlockKeyValue( std::string const& serverBlockData ) const {
@@ -187,9 +208,9 @@ namespace ws {
             std::vector<std::string> serversBlocksData;
 
             for (size_t i = 0; data[i]; i++) {
-                int64_t start = findBeginOfServerBlockData(data, i);
+                int64_t start = findBeginOfKeywordBlock(data, "server", i);
                 if (start != -1) {
-                    int64_t end = findEndOfServerBlockData(data, start);
+                    int64_t end = findEndOfKeywordBlock(data, start);
                     serversBlocksData.push_back(data.substr(start, end - start  + 1));
                 }
             }
@@ -210,7 +231,7 @@ namespace ws {
             }
         }
 
-        int64_t findEndOfServerBlockData( std::string const& data, size_t start ) const {
+        int64_t findEndOfKeywordBlock( std::string const& data, size_t start ) const {
             char brackets[] = {'{', '}'};
             std::stack<char> matches;
 
@@ -228,8 +249,8 @@ namespace ws {
             return -1;
         }
 
-        int64_t findBeginOfServerBlockData( std::string const& data, size_t start ) const {
-            std::string const& keyword = "server";
+        // find keyword and skip until reaching open bracket reached
+        int64_t findBeginOfKeywordBlock( std::string const& data, std::string const& keyword, size_t start ) const {
             size_t i = 0;
             while ( data[i] && keyword[i] == data[start + i] ) {
                 i++;

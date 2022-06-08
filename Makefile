@@ -4,7 +4,7 @@ CC = c++
 
 UNUSED_FLAGS = -Wno-unused-variable -Wno-unused-parameter
 FLAGS = -Wall -Werror -Wextra
-FLAGS_DEBUG = -Wall -Werror -Wextra -g3 -fsanitize=address
+FLAGS_DEBUG = -Wall -Werror -Wextra -g3 $(UNUSED_FLAGS) #-fsanitize=address
 
 
 FLAGS_EMPTY =
