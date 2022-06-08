@@ -45,7 +45,7 @@ namespace ws {
         va_start(args, err);
         std::cerr << COLORS_RED_BOLD << err;
         len--;
-        while ( len-- ) {
+        while (len--) {
             char const* s = va_arg(args, char const*);
             std::cerr << s;
         }

@@ -149,12 +149,13 @@ namespace ws {
 
         std::map<std::string, std::vector<std::string> > getServerBlockKeyValue( std::string const& serverBlockData ) const {
             std::map<std::string, std::vector<std::string> > dataKeyValue;
+            std::stack<char> matches;
+            char brackets[] = {'{', '}'};
 
             size_t i = 0;
             while (i < serverBlockData.size()) {
                 std::string line;
-                char brackets[] = {'{', '}'};
-                std::stack<char> matches;
+                bool matchesDeferPop = false;
 
                 // get line from string
                 size_t j = i;
@@ -187,7 +188,7 @@ namespace ws {
                 // checking values
                 if (!values.empty() && values.back() == "}") {
                     values.pop_back();
-                    matches.pop();
+                    matchesDeferPop = true;
                 } else if (!values.empty() && values.back() == "{") {
                     values.pop_back();
                     matches.push(brackets[0]);
@@ -199,21 +200,28 @@ namespace ws {
                 }
 
                 std::pair<std::string, std::vector<std::string> > pair = std::make_pair(key, values);
-                if (matches.empty() && key != "location" && !dataKeyValue.insert(pair).second ) {
+                if ( matches.empty()
+                     && key != "location"
+                     && !dataKeyValue.insert(pair).second
+                ) {
                     throw ParsingException(formatMessage("duplicate keyword `%s` were found", pair.first.c_str()));
+                }
+
+                if (matchesDeferPop) {
+                    matches.pop();
                 }
             }
 
             // debugging
-            for (auto keyValue : dataKeyValue) {
-                std::cout << "key: " << keyValue.first << ", values: [";
-                for (size_t i = 0; i < keyValue.second.size(); i++) {
-                    if (i != 0)
-                        std::cout << ", ";
-                    std::cout << keyValue.second[i];
-                }
-                std::cout << "]" << std::endl;
-            }
+//            for (auto keyValue : dataKeyValue) {
+//                std::cout << "key: " << keyValue.first << ", values: [";
+//                for (size_t i = 0; i < keyValue.second.size(); i++) {
+//                    if (i != 0)
+//                        std::cout << ", ";
+//                    std::cout << keyValue.second[i];
+//                }
+//                std::cout << "]" << std::endl;
+//            }
 
             return dataKeyValue;
         }
