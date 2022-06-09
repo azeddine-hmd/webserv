@@ -2,6 +2,7 @@
 #include <csignal>
 
 #include "config.hpp"
+#include "defaults.hpp"
 #include "application.hpp"
 
 void intercept(int sig) {
@@ -21,7 +22,7 @@ int     main( int argc, char **argv ) {
     // create config
     ws::Config * config;
     try {
-        config = (argc == 1) ? new ws::Config() : new ws::Config(argv[1]);
+        config = (argc == 1) ? new ws::Config(ws::defaults::CONFIG_PATH) : new ws::Config(argv[1]);
     } catch (ws::Config::PathException& e) {
         ws::printError(2, "config error: ", e.what());
         return EXIT_FAILURE;

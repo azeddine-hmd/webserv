@@ -27,45 +27,16 @@ namespace ws {
          *      - PathException
          *      - ParsingException
          */
-        Config(): path(DEFAULT_CONFIG_PATH) {
-            try {
-                init();
-            } catch (PathException& e) {
-                throw e;
-            } catch (ParsingException& e) {
-                throw e;
-            }
-        }
-
-        /*
-         * throw Exception:
-         *      - PathException
-         *      - ParsingException
-         */
         Config( std::string const& path ): path(path) {
-            try {
-                init();
-            } catch (PathException& e) {
-                throw e;
-            } catch (ParsingException& e) {
-                throw e;
+            serverBlocks = parsingServerBlocks(path);
+            if (serverBlocks.empty()) {
+                throw ParsingException(formatMessage("no server block were found"));
             }
         }
 
     private:
 
         void init() {
-            try {
-                serverBlocks = parsingServerBlocks(path);
-            } catch (PathException& e) {
-                throw e;
-            } catch (ParsingException& e) {
-                throw e;
-            }
-
-            if (serverBlocks.empty()) {
-               throw ParsingException(formatMessage("no server block were found"));
-            }
         }
 
         std::vector<ServerBlock> parsingServerBlocks( std::string const& path ) const {
@@ -74,16 +45,13 @@ namespace ws {
                 throw PathException();
             }
 
-            // read config file into string
+            // read config file into string (i call it `data`)
             std::string line, data;
             while (getline(fs, line)) {
                 data += line;
                 data += "\n";
             }
             fs.close();
-
-            if (data.size() < MINIMUM_CONFIG_SIZE)
-                throw ParsingException(formatMessage("file config too small"));
 
             // removing unnecessary information from data string for easy parsing later
             data = removeAllComments(data); // also whitespaces at end of line
@@ -92,7 +60,7 @@ namespace ws {
             data = removingWhitespacesAtBeginningOfLine(data);
             replaceAllTabsWithSpaces(data);
 
-            try { checkingConfigSyntaxError(data); } catch (ParsingException& e) { throw e; }
+            checkingConfigSyntaxError(data);
 
             std::vector<ServerBlock> serversBlocks = getServersBlocks(data);
             //TODO: implement fillDataInStruct(serversBlocks)
@@ -103,13 +71,8 @@ namespace ws {
         std::vector<ServerBlock> getServersBlocks(std::string const& data ) const {
             std::vector<ServerBlock> serversBlocks;
 
-            std::vector<std::string> serversBlocksData;
-            try {
-                serversBlocksData = getServersBlocksData(data);
-                checkingEmptyBlock(serversBlocksData);
-            } catch (ParsingException& e) {
-                throw e;
-            }
+            std::vector<std::string> serversBlocksData = getServersBlocksData(data);
+            checkingEmptyBlock(serversBlocksData);
 
             for (size_t i = 0; i < serversBlocksData.size(); i++) {
                 ServerBlock serverBlock;
@@ -118,19 +81,24 @@ namespace ws {
                 std::map<std::string, std::vector<std::string> > dataKeyValue = getServerBlockKeyValue(serversBlocksData[i]);
                 serverBlock.dataKeyValue = dataKeyValue;
 
-                std::vector<std::string> locationBlockData;
-                try {
-                    locationBlockData = getLocationBlocksData(serversBlocksData[i]);
-                    checkingEmptyBlock(locationBlockData);
-                } catch (ParsingException& e) {
-                    throw e;
+                std::vector<std::string> locationBlockData = getLocationBlocksData(serversBlocksData[i]);
+                checkingEmptyBlock(locationBlockData);
+                for (size_t j = 0; j < locationBlockData.size(); j++) {
+                    std::map<std::string, std::vector<std::string> > locationDataKeyValue = getLocationBlockKeyValue(serversBlocksData[i]);
                 }
-                //TODO: continue
 
                 serversBlocks.push_back(serverBlock);
             }
 
             return serversBlocks;
+        }
+
+        std::map<std::string, std::vector<std::string> > getLocationBlockKeyValue(std::string const& data) {
+            std::map<std::string, std::vector<std::string> > dataKeyValue;
+
+            dataKeyValue.empty();
+
+            return dataKeyValue;
         }
 
         std::vector<std::string> getLocationBlocksData(std::string const& data) const {
@@ -162,16 +130,25 @@ namespace ws {
 
             if (i == 9) {
                 i += start;
-                while (i < data.size() && i ) {
-                    //TODO: please fill this form
+                while (i < data.size() && data[i] != '{' ) {
+                    i++;
                 }
+                return i + 1;
             }
 
             return -1;
         }
 
         int64_t findLastIndexOfLocationBlock( std::string const& data, size_t start ) const {
-            //TODO: implement
+            for (size_t end = start; end < data.size(); end++) {
+                if (data[end] == '{') {
+                    throw ParsingException(formatMessage("found block inside location block"));
+                }
+
+                if (end + 1 < data.size() && data[end] == '}') {
+                    return static_cast<int64_t>(end) - 1;
+                }
+            }
 
             return -1;
         }
@@ -272,7 +249,7 @@ namespace ws {
                         isEmpty = false;
                 }
                 if (isEmpty)
-                    throw ParsingException(formatMessage("found empty server block"));
+                    throw ParsingException(formatMessage("found empty block"));
             }
         }
 
@@ -442,7 +419,7 @@ namespace ws {
         }
 
         void checkingConfigSyntaxError( std::string const& data ) const {
-            try { checkingBrackets(data); } catch (ParsingException& e) { throw e; }
+            checkingBrackets(data);
 
             // checking valid keys
             std::vector<std::string> dataLines = split(data, "\n");
@@ -477,13 +454,13 @@ namespace ws {
                     matches.push(brackets[0]);
                 } else if (data[i] == brackets[1]) {
                     if (matches.empty()) {
-                        throw ParsingException(formatMessage("missing close bracket on line..., who needs line number just fix it yourself and considered as eyes exercise"));
+                        throw ParsingException(formatMessage("missing close bracket"));
                     }
                     matches.pop();
                 }
             }
             if (!matches.empty())
-                throw ParsingException(formatMessage("missing open bracket on line..., who needs line number just count them yourself and considered as eyes exercise"));
+                throw ParsingException(formatMessage("missing open bracket"));
         }
 
         std::vector<std::string> getValuesInLine( std::string const& line ) const {
@@ -549,8 +526,5 @@ namespace ws {
         }; // class ParsingException
 
     }; // class Config
-
-    char const* ws::Config::DEFAULT_CONFIG_PATH = "config/default.conf";
-    size_t      ws::Config::MINIMUM_CONFIG_SIZE = 10;
 
 } // namespace ws

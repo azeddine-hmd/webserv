@@ -9,7 +9,6 @@ namespace ws {
     struct LocationBlock {
         std::map <std::string, std::vector<std::string> >   dataKeyValue;
         std::string                                         path;
-        bool                                                allowed;
         std::vector <std::string>                           allowedMethods;
         std::string                                         autoIndex;
         std::string                                         uploadStore;
@@ -18,7 +17,7 @@ namespace ws {
         std::string                                         root;
         std::string                                         returnCode;
         std::string                                         returnPath;
-        long                                                maxBodySize;
+        size_t                                              maxBodySize; // in KB
         std::string                                         indexFile;
     };
 
@@ -27,17 +26,13 @@ namespace ws {
         std::string                                         host;
         std::string                                         port;
         std::string                                         uploadStore;
-        bool                                                allowed; // to check if there is a key or not.
         std::vector<std::string>                            allowedMethods;
         std::string                                         errorPagePath;
         std::string                                         errorCode;
         std::map<int, std::string>                          errorPage;
         std::vector <std::string>                           serverName;
-        std::string                                         max_body_size;
+        std::string                                         maxBodySize;
         std::vector<LocationBlock>                          locations;
-        int serverFd;
-        sockaddr_in address;
-        long maxBodySize; // in kb
     };
 
     namespace parse {
