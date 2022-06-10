@@ -6,8 +6,8 @@ namespace ws {
          * config defaults
          */
         char const* CONFIG_PATH = "config/default.conf";
-        //TODO: continue
-        char const* CONFIG_ROOT = "/";
+        char const* CONFIG_ROOT = "~/www";
+        //TODO: add more defaults
 
     } // namespace defaults
 } // namespace ws

@@ -35,10 +35,6 @@ namespace ws {
         }
 
     private:
-
-        void init() {
-        }
-
         std::vector<ServerBlock> parsingServerBlocks( std::string const& path ) const {
             std::ifstream fs(path.c_str());
             if (!fs) {
@@ -53,8 +49,9 @@ namespace ws {
             }
             fs.close();
 
+
             // removing unnecessary information from data string for easy parsing later
-            data = removeAllComments(data); // also whitespaces at end of line
+            data = removeAllComments(data); // also, whitespaces at end of line
             data = removeAllDuplicateEmptyLines(data);
             data = removeSpacesBeforeBrackets(data);
             data = removingWhitespacesAtBeginningOfLine(data);
@@ -63,7 +60,7 @@ namespace ws {
             checkingConfigSyntaxError(data);
 
             std::vector<ServerBlock> serversBlocks = getServersBlocks(data);
-            //TODO: implement fillDataInStruct(serversBlocks)
+            processInternalData(serverBlocks);
 
             return serversBlocks;
         }
@@ -79,12 +76,15 @@ namespace ws {
 
                 // parsing server block
                 std::map<std::string, std::vector<std::string> > dataKeyValue = getServerBlockKeyValue(serversBlocksData[i]);
-                serverBlock.dataKeyValue = dataKeyValue;
+                serverBlock.setDataKeyValue(dataKeyValue);
 
                 std::vector<std::string> locationBlockData = getLocationBlocksData(serversBlocksData[i]);
                 checkingEmptyBlock(locationBlockData);
                 for (size_t j = 0; j < locationBlockData.size(); j++) {
-                    std::map<std::string, std::vector<std::string> > locationDataKeyValue = getLocationBlockKeyValue(serversBlocksData[i]);
+                    LocationBlock locationBlock;
+                    std::map<std::string, std::vector<std::string> > locationDataKeyValue = getLocationBlockKeyValue(locationBlockData[i]);
+                    locationBlock.setDataKeyValue(locationDataKeyValue);
+                    serverBlock.locations.push_back(locationBlock);
                 }
 
                 serversBlocks.push_back(serverBlock);
@@ -93,10 +93,36 @@ namespace ws {
             return serversBlocks;
         }
 
-        std::map<std::string, std::vector<std::string> > getLocationBlockKeyValue(std::string const& data) {
+        std::map<std::string, std::vector<std::string> > getLocationBlockKeyValue(std::string const& locationBlockData) const {
             std::map<std::string, std::vector<std::string> > dataKeyValue;
 
-            dataKeyValue.empty();
+            size_t i = 0;
+            while (i < locationBlockData.size()) {
+                std::string line;
+
+                // get line from string
+                size_t j = i;
+                while (j < locationBlockData.size() && locationBlockData[j] != '\n') {
+                    line += locationBlockData[j];
+                    j++;
+                }
+                i = ++j;
+                std::string key = getKeyInLine(line);
+                std::vector<std::string> values = getValuesInLine(line);
+
+                if (key.empty()) {
+                    continue;
+                } else if (values.empty()) {
+                    throw ParsingException(formatMessage("key `%s` lacks value in location block", key.c_str()));
+                }
+
+                // checking values
+
+                std::pair<std::string, std::vector<std::string> > pair = std::make_pair(key, values);
+                if (!dataKeyValue.insert(pair).second) {
+                    throw ParsingException(formatMessage("duplicate keyword `%s` were found in location block", pair.first.c_str()));
+                }
+            }
 
             return dataKeyValue;
         }
@@ -188,7 +214,7 @@ namespace ws {
                     && key != "}"
                     && (values.empty() || values.front() == "{" || values.front() == "}")
                 ) {
-                    throw ParsingException(formatMessage("key `%s` lacks value", key.c_str()));
+                    throw ParsingException(formatMessage("key `%s` lacks value in server block", key.c_str()));
                 }
 
                 // checking values
@@ -210,7 +236,7 @@ namespace ws {
                      && key != "location"
                      && !dataKeyValue.insert(pair).second
                 ) {
-                    throw ParsingException(formatMessage("duplicate keyword `%s` were found", pair.first.c_str()));
+                    throw ParsingException(formatMessage("duplicate keyword `%s` were found in server block", pair.first.c_str()));
                 }
 
                 if (matchesDeferPop) {
@@ -495,6 +521,18 @@ namespace ws {
             return false;
         }
 
+        /*
+         * processing server and location key values
+         */
+
+        void processInternalData(std::vector<ServerBlock>& serversBlock) const {
+            //TODO: continue
+        }
+
+
+        /*
+         * Exceptions
+         */
     public:
         class PathException : public std::exception {
         public:

@@ -6,8 +6,10 @@
 
 namespace ws {
 
-    struct LocationBlock {
+    class LocationBlock {
         std::map <std::string, std::vector<std::string> >   dataKeyValue;
+
+    public:
         std::string                                         path;
         std::vector <std::string>                           allowedMethods;
         std::string                                         autoIndex;
@@ -18,11 +20,21 @@ namespace ws {
         std::string                                         returnCode;
         std::string                                         returnPath;
         size_t                                              maxBodySize; // in KB
-        std::string                                         indexFile;
+
+    public:
+        std::map<std::string, std::vector<std::string>> const& getDataKeyValue() const {
+            return dataKeyValue;
+        }
+
+        void setDataKeyValue(std::map<std::string, std::vector<std::string>> const& dataKeyValue) {
+            LocationBlock::dataKeyValue = dataKeyValue;
+        }
     };
 
-    struct ServerBlock {
+    class ServerBlock {
         std::map <std::string, std::vector<std::string> >   dataKeyValue;
+
+    public:
         std::string                                         host;
         std::string                                         port;
         std::string                                         uploadStore;
@@ -33,6 +45,16 @@ namespace ws {
         std::vector <std::string>                           serverName;
         std::string                                         maxBodySize;
         std::vector<LocationBlock>                          locations;
+        std::string                                         indexFile;
+
+    public:
+        std::map<std::string, std::vector<std::string>> const& getDataKeyValue() const {
+            return dataKeyValue;
+        }
+
+        void setDataKeyValue(std::map<std::string, std::vector<std::string>> const& dataKeyValue) {
+            ServerBlock::dataKeyValue = dataKeyValue;
+        }
     };
 
     namespace parse {
