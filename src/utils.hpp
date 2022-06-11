@@ -54,4 +54,8 @@ namespace ws {
         va_end(args);
     }
 
+    bool isNumber(std::string const& str) {
+        return str.find_first_of("0123456789") == std::string::npos;
+    }
+
 }
