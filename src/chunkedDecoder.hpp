@@ -23,12 +23,12 @@ int hexToDec(std::string num)
 	int         ret     = 0;
 	int         pow     = 1;
 	int         index   = num.size() - 1;
-
 	while(index >= 0)
 	{
 		ret += set.find(num[index--]) * pow;
 		pow *= 16;
 	}
+
 	return ret;
 }
 
@@ -83,11 +83,14 @@ class ChunkedDecoder
 		BodyFile	_outFile;
 		int			_index;
 		int			_bufferSize;
+	public:
 		ChunkedDecoder()
 		{
-
+			_outFile = BodyFile();
+			_prvBuffer = "";
+			_byteNum = -1;
+			_index = 0;
 		}
-	public:
 		ChunkedDecoder (BodyFile& out)
 		{
 			_outFile = out;
@@ -95,7 +98,10 @@ class ChunkedDecoder
 			_byteNum = -1;
 			_index = 0;
 		}
-
+		void SetFile(BodyFile& out)
+		{
+			_outFile = out;
+		}
 		void getNum(std::string& buffer)
 		{
 			int pos = buffer.find("\r\n", _index);
@@ -115,7 +121,6 @@ class ChunkedDecoder
 		{
 			if(_bufferSize - _index >= _byteNum + 2)
 			{
-
 				write(_outFile.fd, buffer.substr(_index, _byteNum).c_str(), _byteNum);
 				_index += _byteNum + 2;
 				_prvBuffer = "";
@@ -123,7 +128,10 @@ class ChunkedDecoder
 			}
 			else
 			{
-				_prvBuffer = buffer.substr(_index, _bufferSize - 1);
+				std::string to_print = buffer.substr(_index, _byteNum - _index);
+				write(_outFile.fd, to_print.c_str(), to_print.size());
+				_byteNum -= to_print.size();
+				_index += to_print.size();
 			}
 
 		}

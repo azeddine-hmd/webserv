@@ -25,11 +25,8 @@ class Request
 		BodyFile							_BodyFile;
 		size_t								_bodySize;	
 		size_t								_targetSize;
-							
+		ChunkedDecoder						_chunkedDecoder;					
 
-		Request( void ) {
-
-		}
 	public:
 		Request( int fd ) {
 			_SockFd 		= fd;
@@ -83,6 +80,11 @@ class Request
 			else
 			{
 				CreateFile();
+				if (_Headers["Transfer-Encoding"] == "chunked")
+				{
+					_chunkedDecoder.SetFile( _BodyFile );
+					_chunkedDecoder.decode(_BodyBuffer);
+				}
 				write(_BodyFile.fd, _BodyBuffer.c_str(), _BodyBuffer.size());
 				_bodySize = _BodyBuffer.size();
 			}
@@ -119,6 +121,7 @@ class Request
 			{
 				char buf[BUFFER_SIZE];
 				int ret = read(_SockFd, buf, BUFFER_SIZE);
+				std::string buffer = std::string(buf, ret);
 				_bodySize += ret;
 				// if(ret > 0)
 				// {
@@ -126,13 +129,25 @@ class Request
 				// 		CreateFile();
 				// 	write(_BodyFile.fd, buf, ret);
 				// }
-				if(ret > 0)
-					write(_BodyFile.fd, buf, ret);
-				if(_bodySize == _targetSize)
+				if (_Headers["Transfer-Encoding"] == "chunked")
 				{
-					_RequestDone = true;
-					std::cout << "done" << std::endl;
-					return;
+					if(!_chunkedDecoder.decode(buffer))
+					{
+						_RequestDone = true;
+						std::cout << "done" << std::endl;
+						return;
+					}
+				}
+				else
+				{
+					if(ret > 0)
+						write(_BodyFile.fd, buf, ret);
+					if(_bodySize == _targetSize)
+					{
+						_RequestDone = true;
+						std::cout << "done" << std::endl;
+						return;
+					}
 				}
 			}
 			else
