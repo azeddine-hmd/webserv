@@ -7,12 +7,15 @@
 #include <cstring>
 
 #include "config_model.hpp"
+#include "defaults.hpp"
 #include "utils.hpp"
 
 namespace ws {
 
     class Config {
-        typedef std::vector<std::string>::iterator  LineIter;
+        typedef std::vector<std::string>::iterator                            LineIter;
+        typedef std::map<std::string, std::vector<std::string> >              MapKeyValue;
+        typedef std::map<std::string, std::vector<std::string> >::iterator    MapKeyValueIter;
 
     public:
         std::string                 path;
@@ -23,7 +26,7 @@ namespace ws {
 
 
         /*
-         * throw Exception:
+         *  throw Exception:
          *      - PathException
          *      - ParsingException
          */
@@ -60,7 +63,7 @@ namespace ws {
             checkingConfigSyntaxError(data);
 
             std::vector<ServerBlock> serversBlocks = getServersBlocks(data);
-            processInternalData(serverBlocks);
+            process(serversBlocks);
 
             return serversBlocks;
         }
@@ -522,12 +525,203 @@ namespace ws {
         }
 
         /*
-         * processing server and location key values
+         *  processing server and location key values
          */
 
-        void processInternalData(std::vector<ServerBlock>& serversBlock) const {
-            //TODO: continue
+        void process(std::vector<ServerBlock>& serversBlock) const {
+            for (size_t i = 0; i< serversBlock.size(); i++) {
+                processServerBlock(serversBlock[i]);
+            }
         }
+
+        void processServerBlock(ServerBlock& sb) const {
+            MapKeyValue kv = sb.getDataKeyValue();
+
+            // host and port
+            std::pair<std::string, uint16_t> hostAndPort = getHostAndPort(kv);
+            sb.host = hostAndPort.first;
+            sb.port = hostAndPort.second;
+            sb.serverNames = getServerNames(kv);
+            sb.errorPages = getErrorPages(kv);
+            sb.root = getRoot(kv);
+            sb.maxBodySize = getMaxClientSize(kv);
+        }
+
+        MapKeyValueIter getKeyIter(MapKeyValue& kv, std::string const& keyword, size_t nvalues, bool mustFound = false) const {
+            MapKeyValueIter iter = kv.find(keyword);
+            if (mustFound && iter == kv.end()) {
+                throw ParsingException(formatMessage("`%s` keyword not found", keyword.c_str()));
+            } else if (iter != kv.end() && (*iter).second.size() > nvalues) {
+                throw ParsingException(formatMessage("found more than one value for keyword `%s`", keyword.c_str()));
+            }
+
+            return iter;
+        }
+
+        std::pair<std::string, uint16_t> getHostAndPort(MapKeyValue& kv) const {
+            MapKeyValueIter iter = getKeyIter(kv, "listen", 1, true);
+
+            std::vector<std::string> hostAndPort = split((*iter).second.front(), ":");
+            if (hostAndPort.size() < 2) {
+                throw ParsingException(formatMessage("port not found"));
+            }
+
+            std::string host = hostAndPort.front();
+
+            // validating port
+            std::string portString = hostAndPort.back();
+            uint64_t port;
+            if (isNumber(portString)) {
+                throw ParsingException(formatMessage("couldn't parse port number"));
+            }
+            try {
+                port = stoul(portString);
+            } catch (std::invalid_argument& e) {
+                throw ParsingException(formatMessage("couldn't parse port number"));
+            }
+            if (port > std::numeric_limits<uint16_t>::max()) {
+                throw ParsingException(formatMessage("port range should be from 0 to 65535"));
+            }
+
+
+            return std::make_pair(host, static_cast<uint16_t>(port));
+        }
+
+        std::vector<std::string> getServerNames(MapKeyValue& kv) const {
+            MapKeyValueIter iter = getKeyIter(kv, "server_names", defaults::SERVER_NAMES_LIMIT);
+            if (iter == kv.end()) {
+                return std::vector<std::string>();
+            } else {
+                return (*iter).second;
+            }
+        }
+
+        std::map<int, std::string> getErrorPages(MapKeyValue& kv) const {
+            std::map<int, std::string> errorPages;
+            std::pair<int, std::string> errorPair;
+
+            {
+                MapKeyValueIter iter = getKeyIter(kv, "error_page_204", 1);
+                if (iter == kv.end()) {
+                    errorPair = std::make_pair(204, defaults::PATH_ERROR_PAGE_204);
+                } else {
+                    errorPair = std::make_pair(204, (*iter).second.front());
+                }
+                errorPages.insert(errorPair);
+            }
+
+            {
+                MapKeyValueIter iter = getKeyIter(kv, "error_page_400", 1);
+                if (iter == kv.end()) {
+                    errorPair = std::make_pair(400, defaults::PATH_ERROR_PAGE_400);
+                } else {
+                    errorPair = std::make_pair(400, (*iter).second.front());
+                }
+                errorPages.insert(errorPair);
+            }
+
+            {
+                MapKeyValueIter iter = getKeyIter(kv, "error_page_403", 1);
+                if (iter == kv.end()) {
+                    errorPair = std::make_pair(403, defaults::PATH_ERROR_PAGE_403);
+                } else {
+                    errorPair = std::make_pair(403, (*iter).second.front());
+                }
+                errorPages.insert(errorPair);
+            }
+
+            {
+                MapKeyValueIter iter = getKeyIter(kv, "error_page_404", 1);
+                if (iter == kv.end()) {
+                    errorPair = std::make_pair(404, defaults::PATH_ERROR_PAGE_404);
+                } else {
+                    errorPair = std::make_pair(404, (*iter).second.front());
+                }
+                errorPages.insert(errorPair);
+            }
+
+            {
+                MapKeyValueIter iter = getKeyIter(kv, "error_page_413", 1);
+                if (iter == kv.end()) {
+                    errorPair = std::make_pair(413, defaults::PATH_ERROR_PAGE_413);
+                } else {
+                    errorPair = std::make_pair(413, (*iter).second.front());
+                }
+                errorPages.insert(errorPair);
+            }
+
+            {
+                MapKeyValueIter iter = getKeyIter(kv, "error_page_500", 1);
+                if (iter == kv.end()) {
+                    errorPair = std::make_pair(500, defaults::PATH_ERROR_PAGE_500);
+                } else {
+                    errorPair = std::make_pair(500, (*iter).second.front());
+                }
+                errorPages.insert(errorPair);
+            }
+
+            {
+                MapKeyValueIter iter = getKeyIter(kv, "error_page_502", 1);
+                if (iter == kv.end()) {
+                    errorPair = std::make_pair(502, defaults::PATH_ERROR_PAGE_502);
+                } else {
+                    errorPair = std::make_pair(502, (*iter).second.front());
+                }
+                errorPages.insert(errorPair);
+            }
+
+            {
+                MapKeyValueIter iter = getKeyIter(kv, "error_page_504", 1);
+                if (iter == kv.end()) {
+                    errorPair = std::make_pair(504, defaults::PATH_ERROR_PAGE_504);
+                } else {
+                    errorPair = std::make_pair(504, (*iter).second.front());
+                }
+                errorPages.insert(errorPair);
+            }
+
+            {
+                MapKeyValueIter iter = getKeyIter(kv, "error_page_505", 1);
+                if (iter == kv.end()) {
+                    errorPair = std::make_pair(505, defaults::PATH_ERROR_PAGE_505);
+                } else {
+                    errorPair = std::make_pair(505, (*iter).second.front());
+                }
+                errorPages.insert(errorPair);
+            }
+
+            return errorPages;
+        }
+
+        std::string getRoot(MapKeyValue& kv) const {
+            std::string root;
+
+            MapKeyValueIter iter = getKeyIter(kv, "root", 1);
+            if (iter == kv.end()) {
+                root = defaults::ROOT;
+            } else {
+                root = (*iter).second.front();
+            }
+
+            return root;
+        }
+
+        size_t  getMaxBodySize(MapKeyValue& kv) const {
+            MapKeyValueIter iter = getKeyIter(kv, "client_max_body_size", 1);
+            size_t maxBodySize = defaults::UNLIMITED_BODY_SIZE;
+
+            //TODO: continue
+            if (isNumber((*iter).second.front())) {
+                std::stoi((*iter).second.front());
+            }
+
+
+            return maxBodySize;
+        }
+
+//      std::vector<std::string> getAllowedMethods(MapKeyValue& kv) const {
+//          MapKeyValueIter iter = getKeyIter(kv, "allow", defaults::ALLOWED_METHOD_LIMIT, true);
+//      }
 
 
         /*
