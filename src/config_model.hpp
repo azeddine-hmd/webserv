@@ -19,14 +19,13 @@ namespace ws {
         std::string                                         root;
         std::string                                         returnCode;
         std::string                                         returnPath;
-        size_t                                              maxBodySize; // in KB
 
     public:
-        std::map<std::string, std::vector<std::string>> const& getDataKeyValue() const {
+        std::map<std::string, std::vector<std::string> > const& getDataKeyValue() const {
             return dataKeyValue;
         }
 
-        void setDataKeyValue(std::map<std::string, std::vector<std::string>> const& dataKeyValue) {
+        void setDataKeyValue(std::map<std::string, std::vector<std::string> > const& dataKeyValue) {
             LocationBlock::dataKeyValue = dataKeyValue;
         }
     };
@@ -35,24 +34,22 @@ namespace ws {
         std::map <std::string, std::vector<std::string> >   dataKeyValue;
 
     public:
-        std::string                                         host;
-        std::string                                         port;
-        std::string                                         uploadStore;
-        std::vector<std::string>                            allowedMethods;
-        std::string                                         errorPagePath;
-        std::string                                         errorCode;
-        std::map<int, std::string>                          errorPage;
-        std::vector <std::string>                           serverName;
-        std::string                                         maxBodySize;
         std::vector<LocationBlock>                          locations;
+        std::string                                         host;
+        uint16_t                                            port;
+        std::vector <std::string>                           serverNames;
+        std::map<int, std::string>                          errorPages;
+        std::string                                         root;
+        std::string                                         uploadStore;
+        std::string                                         maxBodySize;
         std::string                                         indexFile;
 
     public:
-        std::map<std::string, std::vector<std::string>> const& getDataKeyValue() const {
+        std::map<std::string, std::vector<std::string> > const& getDataKeyValue() const {
             return dataKeyValue;
         }
 
-        void setDataKeyValue(std::map<std::string, std::vector<std::string>> const& dataKeyValue) {
+        void setDataKeyValue(std::map<std::string, std::vector<std::string> > const& dataKeyValue) {
             ServerBlock::dataKeyValue = dataKeyValue;
         }
     };
@@ -61,7 +58,7 @@ namespace ws {
 
         std::string validKeys[] = {
                 "listen",
-                "server_name",
+                "server_names",
                 "error_page",
                 "client_max_body_size",
                 "location",
@@ -74,9 +71,18 @@ namespace ws {
                 "return",
                 "root",
                 "server",
+                "error_page_204",
+                "error_page_400",
+                "error_page_403",
+                "error_page_404",
+                "error_page_413",
+                "error_page_500",
+                "error_page_502",
+                "error_page_504",
+                "error_page_505",
                 "}",
                 "{",
-                ""
+                "",
         };
 
         size_t keywordsLen = sizeof(parse::validKeys)/sizeof(*(parse::validKeys));
