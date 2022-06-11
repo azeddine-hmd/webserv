@@ -3,8 +3,8 @@ NAME = server
 CC = c++
 
 UNUSED_FLAGS = -Wno-unused-variable -Wno-unused-parameter
-FLAGS = -Wall -Werror -Wextra
-FLAGS_DEBUG = -Wall -Werror -Wextra -g3 $(UNUSED_FLAGS) #-fsanitize=address
+FLAGS = -Wall -Werror -Wextra -std=c++98
+FLAGS_DEBUG = -Wall -Werror -Wextra -std=c++98 -g3 $(UNUSED_FLAGS) #-fsanitize=address
 
 
 FLAGS_EMPTY =
