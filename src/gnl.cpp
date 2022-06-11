@@ -23,6 +23,6 @@ std::string getNextLine(std::string& buffer)
     int delimPos = buffer.find("\r\n");
     std::string ret = buffer.substr(0, delimPos);
     buffer = buffer.substr(delimPos + 2, buffer.size() - 1);
-    // std::cout << ret << std::endl;
+    std::cout << ret << std::endl;
     return ret;
 }

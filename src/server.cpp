@@ -10,7 +10,7 @@
 #include "request.hpp"
 #include "responseBuilder.hpp"
 
-#define PORT 8080
+#define PORT 8081
 
 class Server {
     private:
@@ -88,7 +88,7 @@ int main(int argc, char const *argv[])
     std::vector<Request> active;
     std::vector<Server> listen_s;
 
-    //signal(SIGINT, closePort);
+    signal(SIGPIPE, SIG_IGN);
     Server s1(PORT);
     listen_s.push_back(s1.getFd());
     fd_set master_read, master_write;

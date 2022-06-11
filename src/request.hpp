@@ -10,7 +10,6 @@
 #include "chunkedDecoder.hpp"
 
 
-std::string getNextLine(std::string& buffer);
 #define BUFFER_SIZE 1024
 
 
@@ -25,7 +24,8 @@ class Request
 		bool								_RequestDone; // true when req is done
 		BodyFile							_BodyFile;
 		size_t								_bodySize;	
-		size_t								_targetSize;							
+		size_t								_targetSize;
+							
 
 		Request( void ) {
 
@@ -73,7 +73,6 @@ class Request
 			{
 				std::istringstream iss(_Headers["Content-Length"]);
 				iss >> _targetSize;
-				// = std::stol(_Headers["Content-Length"]);
 			}
 			_HeaderDone = true;
 			if(_Headers["Method"] != "POST")
@@ -115,29 +114,24 @@ class Request
 			_BodyFile.name = n;
 		}
 
-		// parse the header in the first call then reads a chunk of BUFFER_SIZE bits
 		void readChunk ( void ) {
 			if(_HeaderDone)
 			{
 				char buf[BUFFER_SIZE];
 				int ret = read(_SockFd, buf, BUFFER_SIZE);
 				_bodySize += ret;
-				//34756650
-				//34746613
-				// std::cout << _Headers["Content-Length"] << " : " << _bodySize << std::endl;
+				// if(ret > 0)
+				// {
+				// 	if(_BodyFile.fd == -1)
+				// 		CreateFile();
+				// 	write(_BodyFile.fd, buf, ret);
+				// }
 				if(ret > 0)
-				{
-					if(_BodyFile.fd == -1)
-						CreateFile();
 					write(_BodyFile.fd, buf, ret);
-					//std::cout << ret << std::endl;
-					
-				}
 				if(_bodySize == _targetSize)
 				{
 					_RequestDone = true;
 					std::cout << "done" << std::endl;
-					// exit(0);	
 					return;
 				}
 			}
