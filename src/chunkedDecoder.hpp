@@ -7,8 +7,7 @@
 #include <ctime>
 #include <iostream>
 #include <unistd.h>
-
-std::string getNextLine(std::string& buffer);
+#include "utils.hpp"
 
 struct BodyFile
 {

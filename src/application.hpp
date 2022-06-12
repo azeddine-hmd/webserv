@@ -1,6 +1,8 @@
 #pragma once
 
 #include "config/config.hpp"
+#include "request.hpp"
+#include "server.hpp"
 
 namespace ws {
 
@@ -21,6 +23,65 @@ namespace ws {
         void run( Config* config ) {
             mConfig = config;
             std::cout << "===[ Application started ]===" << std::endl;
+            start();
+        }
+
+        void start() {
+            long valread;
+            std::vector<Request> active;
+            std::vector<Server> listen_s;
+
+            signal(SIGPIPE, SIG_IGN);
+            Server s1(PORT);
+            listen_s.push_back(s1.getFd());
+            fd_set master_read, master_write;
+            FD_ZERO(&master_read);
+            FD_ZERO(&master_write);
+            FD_SET(s1.getFd(), &master_read);
+            timeval tv;
+            tv.tv_sec = 0;
+            tv.tv_usec = 1000;
+            while(1)
+            {
+                fd_set copy_read = master_read;
+                fd_set copy_write = master_write;
+                select(1024, &copy_read, &copy_write, nullptr, &tv);
+                int i = 0;
+                //std::cout << active.size() <<std::endl;
+                while(i < static_cast<int>(active.size()))
+                {
+
+                    if(FD_ISSET( active[i].getFd(), &copy_read ))
+                    {
+                        // std::cout << active.size() <<std::endl;
+                        active[i].readChunk();
+                        if(active[i].getStatus())
+                        {
+                            FD_CLR(active[i].getFd(),&master_read);
+                            FD_SET(active[i].getFd(), &master_write);
+                        }
+                    }
+                    if (FD_ISSET( active[i].getFd(), &copy_write))
+                    {
+                        ResponseBuilder rb(active[i]);
+                        rb.sendShunk();
+                        FD_CLR(active[i].getFd(),&master_write);
+                        close(active[i].getFd());
+                        active.erase(active.begin() + i);
+                        i--;
+                    }
+                    i++;
+                }
+                if (FD_ISSET(s1.getFd(),&copy_read))
+                {
+                    int new_socket = accept(s1.getFd(), (sockaddr *)(s1.getAddress()), s1.getAddrlen());
+                    if(new_socket > 0)
+                    {
+                        active.push_back(Request(new_socket));
+                        FD_SET(new_socket,&master_read);
+                    }
+                }
+            }
         }
 
     };

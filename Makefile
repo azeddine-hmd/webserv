@@ -9,6 +9,7 @@ FLAGS = -Wall -Werror -Wextra $(DEBUG) #-std=c++98
 FLAGS_EMPTY =
 
 SRC =	src/main.cpp \
+		src/mimeTypes.cpp \
 
 OBJ = ${SRC:.cpp=.o}
 
