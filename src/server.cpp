@@ -7,7 +7,10 @@
 #include <iostream>
 #include <vector>
 
-#define PORT 8080
+#include "request.hpp"
+#include "responseBuilder.hpp"
+
+#define PORT 8081
 
 class Server {
     private:
@@ -72,67 +75,68 @@ class Server {
         }
 };
 
+void closePort(int sig)
+{
+    close(PORT);
+    exit(0);
+}
+
+
 int main(int argc, char const *argv[])
 {
     long valread;
-    std::vector<int> active;
+    std::vector<Request> active;
     std::vector<Server> listen_s;
- 
-	char a[200000] = "";
-    int fd = open("index.html",O_RDONLY);
-    int ret = 0;
-    size_t size = 0;
-    do {
-        ret = read(fd, a + size, BUFSIZ);
-        size += ret;
-    } while (ret == BUFSIZ);
 
+    signal(SIGPIPE, SIG_IGN);
     Server s1(PORT);
     listen_s.push_back(s1.getFd());
-    fd_set master;
-    FD_ZERO(&master);
-    FD_SET(s1.getFd(), &master);
+    fd_set master_read, master_write;
+    FD_ZERO(&master_read);
+    FD_ZERO(&master_write);
+    FD_SET(s1.getFd(), &master_read);
     timeval tv;
     tv.tv_sec = 0;
     tv.tv_usec = 1000;
     while(1)
     {
-
-        fd_set copy = master;
-        select(0,&copy,nullptr,nullptr,&tv);
-        if (FD_ISSET(s1.getFd(),&copy))
+        fd_set copy_read = master_read;
+        fd_set copy_write = master_write;
+        select(1024, &copy_read, &copy_write, nullptr, &tv);
+        int i = 0;
+        //std::cout << active.size() <<std::endl;
+        while(i < active.size())
+        {
+            
+            if(FD_ISSET( active[i].getFd(), &copy_read ))
+            {
+                // std::cout << active.size() <<std::endl;
+                active[i].readChunk();
+                if(active[i].getStatus())
+                {
+                    FD_CLR(active[i].getFd(),&master_read);
+                    FD_SET(active[i].getFd(), &master_write);
+                }
+            }
+            if (FD_ISSET( active[i].getFd(), &copy_write))
+            {
+                ResponseBuilder rb(active[i]);
+                rb.sendShunk();
+                FD_CLR(active[i].getFd(),&master_write);
+                close(active[i].getFd());
+                active.erase(active.begin() + i);
+                i--;
+            }
+            i++;
+        }
+        if (FD_ISSET(s1.getFd(),&copy_read))
         {
             int new_socket = accept(s1.getFd(), (sockaddr *)(s1.getAddress()), s1.getAddrlen());
             if(new_socket > 0)
             {
-                active.push_back(new_socket);
-                FD_SET(new_socket,&master);
+                active.push_back(Request(new_socket));
+                FD_SET(new_socket,&master_read);
             }
-        }
-        int i = 0;
-        while(i < active.size())
-        {
-            if(FD_ISSET(active[i],&copy))
-            {
-                
-                char buffer[30000];
-                valread = read( active[i] , buffer, 30000);
-                std::cout << active[i] << std::endl;
-                std::cout << "buffer: " << buffer << std::endl;
-                std::string hello = "HTTP/1.1 200 OK\r\nContent-Type: text/html\r\nContent-Length: " + std::to_string(size) + "\r\n\r\n";
-                char *payload = (char*)malloc(hello.length() + size);
-                memset(payload, 0, hello.length() + size);
-                memcpy(payload, hello.c_str(), hello.length());
-                memcpy(payload + hello.length(), a, size);
-                // char *hello = ft
-                write(active[i] , payload  , hello.length() + size);
-                free(payload);
-                active.erase(active.begin() + i);
-                FD_CLR(active[i],&copy);
-                //std::cout << "after erase " << active.size() << std::endl;
-            }
-            else
-                i++;
         }
     }
     return 0;
