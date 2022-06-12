@@ -1,20 +1,33 @@
 NAME = server
 
 CC = c++
-FLAGS = -Wall -Werror -Wextra
-FLAGS_DEBUG = -Wall -Werror -Wextra -g3 -fsanitize=address
-FLAGS_EMPTY = -g3 -fsanitize=address
 
-SRC = src/server.cpp src/gnl.cpp src/mimeTypes.cpp
+DEBUG = -g3 -Wno-unused-variable -Wno-unused-parameter #-fsanitize=address
+FLAGS = -Wall -Werror -Wextra $(DEBUG) #-std=c++98
+
+
+FLAGS_EMPTY =
+
+SRC =	src/main.cpp \
+
 OBJ = ${SRC:.cpp=.o}
+
+CLIENT_SRC = src/client.c
+CLIENT_OBJ = $(CLIENT_SRC:.c=.o)
 
 all: $(NAME)
 
-$(NAME): $(SRC)
-	@$(CC) $(FLAGS_EMPTY) $(SRC) -o $(NAME)
+$(NAME): clean
+	@$(CC) $(FLAGS) $(SRC) -o $(NAME)
+
+client: clean
+	@$(CC) $(FLAGS) $(CLIENT_SRC) -o client
 
 clean:
 	@rm -f $(OBJ) $(CLIENT_OBJ) $(NAME) client
+
+test_config: tests/config.cpp
+	@$(CC) $(FLAGS) $< -o tester
 
 re: clean all
 
