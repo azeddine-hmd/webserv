@@ -1,5 +1,5 @@
 #include "test_utils.cpp"
-#include "../src/config.hpp"
+#include "../src/config/config.hpp"
 
 /*
  * Test file for config class

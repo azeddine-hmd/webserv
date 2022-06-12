@@ -1,17 +1,16 @@
 #pragma once
 
-#include "config.hpp"
+#include "config/config.hpp"
 
 namespace ws {
 
     class Application {
         Config* mConfig;
 
-        Application();
         Application( Application const& other);
         Application& operator=( Application const& rhs );
     public:
-        Application( Config* config ): mConfig(config) {
+        Application(): mConfig(NULL) {
 
         }
 
@@ -19,10 +18,12 @@ namespace ws {
             delete mConfig;
         }
 
-        Config const& getConfig() {
-            return *mConfig;
+        void run( Config* config ) {
+            mConfig = config;
+            std::cout << "===[ Application started ]===" << std::endl;
         }
 
     };
 
 }
+

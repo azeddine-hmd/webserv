@@ -10,7 +10,7 @@
 
 #include "config_model.hpp"
 #include "defaults.hpp"
-#include "utils.hpp"
+#include "../utils.hpp"
 
 namespace ws {
 

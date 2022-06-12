@@ -1,9 +1,11 @@
 #include <iostream>
 #include <csignal>
 
-#include "config.hpp"
-#include "defaults.hpp"
+#include "config/config.hpp"
+#include "config/defaults.hpp"
 #include "application.hpp"
+#include "globals.hpp"
+
 
 void intercept(int sig) {
     (void)sig;
@@ -32,8 +34,7 @@ int     main( int argc, char **argv ) {
         return EXIT_FAILURE;
     }
 
-    // run application
-    ws::Application app(config);
+    app.run(config);
 
     return EXIT_SUCCESS;
 }
