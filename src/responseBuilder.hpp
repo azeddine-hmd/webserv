@@ -4,39 +4,51 @@
 #include <stdio.h>
 #include <string>
 #include <unistd.h>
-#include "request.hpp"
 #include <fcntl.h>
-#include "mimeTypes.hpp"
 #include <cstring>
 #include <stdlib.h>
+#include "mimeTypes.hpp"
+#include "request.hpp"
 
-class ResponseBuilder
-{
-    private:
-        std::string _ResponseHeader;
-        int         _ResponseFd; // the fd of the file that will be sent
-        Request&    _req;
-        bool        _HeaderSent;
+namespace ws {
+
+    class ResponseBuilder {
+        std::string         _ResponseHeader;
+        Request             _req;
+        bool                _HeaderSent;
+        ServerBlock&        mServerBlock;
+        bool                mFinish;
+
     public:
-
-        ResponseBuilder (Request& request): _req(request)
-        {
+        ResponseBuilder( Request& request, ServerBlock& serverBlock ): _req(request), mServerBlock(serverBlock) {
+            _req = request;
             _HeaderSent = false;
+            mFinish = false;
         }
 
-        off_t getContentLength( int fd ) {
+        ResponseBuilder& operator=( ResponseBuilder const& rhs ) {
+            if (this != &rhs ) {
+                _ResponseHeader = rhs._ResponseHeader;
+                _req = rhs._req;
+                _HeaderSent = rhs._HeaderSent;
+                mServerBlock = rhs.mServerBlock;
+            }
+
+            return *this;
+        }
+
+        off_t getContentLength(int fd) {
             return (lseek(fd, 0, SEEK_END));
         }
         //HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: 11\r\n\r\nhello world
-        
-        void sendHeader(int fd)
-        {
+
+        void sendHeader(int fd) {
 
         }
 
-        void sendShunk () {
+        void sendShunk() {
             std::string path = "www";
-            
+
             path += _req.getHeader("Path");
             int file = open(path.c_str(), O_RDONLY);
             std::string fileS = std::to_string(getContentLength(file));
@@ -44,7 +56,7 @@ class ResponseBuilder
             // std::string response = std::string("HTTP/1.1 200 OK\r\nContent-Type: ")
             // + MimeTypes::getType(path.c_str()) + std::string("\r\nContent-Length: ")
             // + std::to_string(getContentLength()) + std::string("\r\n\r\n");
-            const char* mime = MimeTypes::getType(path.c_str());
+            const char *mime = MimeTypes::getType(path.c_str());
             write(_req.getFd(), _req.getHeader("Version").c_str(), _req.getHeader("Version").size());
             write(_req.getFd(), " 200 OK\r\nContent-Type: ", 23);
             write(_req.getFd(), mime, strlen(mime));
@@ -55,8 +67,7 @@ class ResponseBuilder
             int ret = 0;
             close(file);
             file = open(path.c_str(), O_RDONLY);
-            while((ret = read(file, buffer, 1024)) > 0)
-            {
+            while ((ret = read(file, buffer, 1024)) > 0) {
                 write(_req.getFd(), buffer, 1024);
             }
             write(_req.getFd(), "\r\n\r\n", 4);
@@ -64,8 +75,30 @@ class ResponseBuilder
             // write(_req.getFd(), )
             // if(!_HeaderSent)
             //     sendHeader(file);
+            mFinish = true;
         }
-};
 
+        int getResponseFd() const {
+            return _req.getFd();
+        }
+
+        bool isFinish() const {
+            return mFinish;
+        }
+
+        Request& getRequest() {
+            return _req;
+        }
+
+        void reset() {
+            //TODO: implement
+            _req.reset();
+            _HeaderSent = false;
+            mFinish = false;
+        }
+
+    };
+
+} // namespace ws
 
 #endif

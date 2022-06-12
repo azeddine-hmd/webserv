@@ -17,23 +17,46 @@ namespace ws {
         sockaddr_in         mAddress;
         socklen_t           mAddrlen;
         int                 mSfd;
-        std::string         mHost;
+        bool                mHaveBind;
 
         static const int    MAX_LISTENERS = 1024;
 
         Server();
+
     public:
 
         /*
          *  creates server then binds and listen
          */
         Server( ServerBlock& serverBlock ): mServerBlock(serverBlock) {
-            mHost = mServerBlock.serverNames.front() + ":" + std::to_string(mServerBlock.port);
             mAddress = getSocketAddress();
+            mAddrlen = sizeof(sockaddr_in);
+            mHaveBind = false;
+            mSfd = -1;
+        }
+
+        Server& operator=( Server const& rhs ) {
+            if (this != &rhs) {
+                mServerBlock = rhs.mServerBlock;
+                mAddress = rhs.mAddress;
+                mAddrlen = rhs.mAddrlen;
+                mSfd = rhs.mSfd;
+            }
+
+            return *this;
+        }
+
+        void start() {
             mSfd = getSocketFileDescriptor();
         }
 
-        int getFd() const {
+        void stop() {
+            if (mHaveBind) {
+                close(mSfd);
+            }
+        }
+
+        int getSocketFD() const {
             return mSfd;
         }
 
@@ -45,11 +68,17 @@ namespace ws {
             return &mAddrlen;
         }
 
-        std::string const& getHost() const {
-            return mHost;
+        //TODO: return vector instead
+        std::string getHost() const {
+            return mServerBlock.getHost();
+        }
+
+        ServerBlock& getServerBlock() {
+            return mServerBlock;
         }
 
     private:
+
         sockaddr_in getSocketAddress() {
             sockaddr_in socketAddress;
             socketAddress.sin_family = AF_INET;
@@ -59,7 +88,7 @@ namespace ws {
             return socketAddress;
         }
 
-        int getSocketFileDescriptor() const {
+        int getSocketFileDescriptor() {
             int sfd;
 
             if ((sfd = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
@@ -67,21 +96,25 @@ namespace ws {
                 exit(EXIT_FAILURE);
             }
 
-            fcntl(sfd, F_SETFL, O_NONBLOCK);
-
             if (bind(sfd, (sockaddr*)&mAddress, sizeof(mAddress)) < 0) {
                 close(sfd);
                 perror("In bind");
                 exit(EXIT_FAILURE);
             }
 
+            mHaveBind = true;
+
             if (listen(sfd, MAX_LISTENERS) < 0) {
+                close(sfd);
                 perror("In listen");
                 exit(EXIT_FAILURE);
             }
 
+            fcntl(sfd, F_SETFL, O_NONBLOCK);
+
             return sfd;
         }
+
     };
 
 } // namespace ws

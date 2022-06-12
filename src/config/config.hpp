@@ -570,7 +570,7 @@ namespace ws {
             std::pair<std::string, uint16_t> hostAndPort = getHostAndPort(kv);
             sb.host = hostAndPort.first;
             sb.port = hostAndPort.second;
-            sb.serverNames = getServerNames(kv);
+            sb.serverName = getServerName(kv);
             sb.errorPages = getErrorPages(kv);
             sb.root = getRoot(kv);
             sb.maxBodySize = getMaxBodySize(kv);
@@ -634,13 +634,9 @@ namespace ws {
             return std::make_pair(host, static_cast<uint16_t>(port));
         }
 
-        std::vector<std::string> getServerNames( MapKeyValue& kv ) const {
+        std::string getServerName( MapKeyValue& kv ) const {
             MapKeyValueIter iter = getKeyIter(kv, "server_names", defaults::SERVER_NAMES_LIMIT, true);
-            if (iter == kv.end()) {
-                return std::vector<std::string>();
-            } else {
-                return (*iter).second;
-            }
+            return (*iter).second.front();
         }
 
         std::map<int, std::string> getErrorPages( MapKeyValue& kv ) const {

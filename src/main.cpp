@@ -3,14 +3,13 @@
 
 #include "config/config.hpp"
 #include "config/defaults.hpp"
-#include "application.hpp"
 #include "globals.hpp"
 
 
 void intercept(int sig) {
     (void)sig;
-    //TODO: close all files descriptors
-    kill(getpid(), SIGKILL);
+    delete &app;
+    std::cout << "===[signal received: quitting...]===" << std::endl;
     exit(EXIT_SUCCESS);
 }
 
@@ -38,6 +37,8 @@ int     main( int argc, char **argv ) {
     }
 
     app.run(config);
+
+    delete &app;
 
     return EXIT_SUCCESS;
 }

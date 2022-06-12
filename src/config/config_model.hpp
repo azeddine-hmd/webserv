@@ -27,7 +27,6 @@ namespace ws {
         //std::string                                         cgiPath;
         //std::vector<std::string>                            cgiExit;
 
-
     public:
         std::map<std::string, std::vector<std::string> > const& getDataKeyValue() const {
             return dataKeyValue;
@@ -35,6 +34,19 @@ namespace ws {
 
         void setDataKeyValue(std::map<std::string, std::vector<std::string> > const& dataKeyValue) {
             LocationBlock::dataKeyValue = dataKeyValue;
+        }
+
+        LocationBlock& operator=( LocationBlock const& rhs ) {
+            if (this != &rhs) {
+                path = rhs.path;
+                root = rhs.root;
+                allowedMethods = rhs.allowedMethods;
+                autoindex = rhs.autoindex;
+                uploadStore = rhs.uploadStore;
+                redirect = rhs.redirect;
+            }
+
+            return *this;
         }
     };
 
@@ -45,7 +57,7 @@ namespace ws {
         std::vector<LocationBlock>                          locations;
         std::string                                         host;
         uint16_t                                            port;
-        std::vector<std::string>                            serverNames;
+        std::string                                         serverName;
         std::map<int, std::string>                          errorPages;
         std::string                                         root;
         std::string                                         uploadStore;
@@ -61,6 +73,29 @@ namespace ws {
 
         void setDataKeyValue(std::map<std::string, std::vector<std::string> > const& dataKeyValue) {
             ServerBlock::dataKeyValue = dataKeyValue;
+        }
+
+        //TODO: return vector instead
+        std::string getHost() const {
+            return serverName + ":" + std::to_string(port);
+        }
+
+        ServerBlock& operator=( ServerBlock const& rhs ) {
+            if (this != &rhs) {
+                locations = rhs.locations;
+                host = rhs.host;
+                port = rhs.port;
+                serverName = rhs.serverName;
+                errorPages = rhs.errorPages;
+                root = rhs.root;
+                uploadStore = rhs.uploadStore;
+                maxBodySize = rhs.maxBodySize;
+                allowedMethods = rhs.allowedMethods;
+                indexFile = rhs.indexFile;
+                autoindex = rhs.autoindex;
+            }
+
+            return *this;
         }
     };
 

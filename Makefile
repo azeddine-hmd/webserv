@@ -2,7 +2,7 @@ NAME = server
 
 CC = c++
 
-DEBUG = -g3 -Wno-unused-variable -Wno-unused-parameter -Wno-unused-private-field #-fsanitize=address
+DEBUG =  -Wno-unused-variable -Wno-unused-parameter -Wno-unused-private-field -g3 #-fsanitize=address
 FLAGS = -Wall -Werror -Wextra $(DEBUG) #-std=c++98
 
 SRC =	src/main.cpp \

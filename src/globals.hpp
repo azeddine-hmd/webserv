@@ -2,4 +2,4 @@
 
 #include "application.hpp"
 
-ws::Application app;
+ws::Application& app = *new ws::Application();
