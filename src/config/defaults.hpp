@@ -23,6 +23,7 @@ namespace ws {
         char const* PATH_ERROR_PAGE_501 = "error_pages/501.html";
         char const* PATH_ERROR_PAGE_502 = "error_pages/502.html";
         char const* PATH_ERROR_PAGE_503 = "error_pages/503.html";
+        char const* PATH_ERROR_PAGE_504 = "error_pages/504.html";
         char const* PATH_ERROR_PAGE_520 = "error_pages/520.html";
 
         std::string ALLOWED_METHODS[] = {

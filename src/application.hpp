@@ -47,7 +47,6 @@ namespace ws {
         /*
          *  Runs all servers
          */
-        int running = 0;
         void startEngine() {
             std::vector<Request> requests;
             std::vector<Response> responses;

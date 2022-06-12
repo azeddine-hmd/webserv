@@ -614,7 +614,7 @@ namespace ws {
                     _Headers.clear();
                 }
 
-				//TODO: is there a way to rewind fd to start from the beginning with closing and reopening?
+				//TODO: is there a way to rewind fd to start from the beginning without closing and reopening?
                 close(_cgiTmpFile);
                 _BodyFd = open(_cgiFile.c_str() , O_RDONLY);
 				if (_BodyFd < 0)
@@ -648,7 +648,12 @@ namespace ws {
         void supervising() {
             int secElapsed = getCgiTimeoutDuration();
             if (secElapsed > 5) {
-                throw std::runtime_error("cgi timeout reached");
+                if (_HeadersSent)
+                    std::cout << "headers already sent" << std::endl;
+                if (!_Headers.empty())
+                    _Headers.clear();
+                SendError(504);
+                throw CgiProcessTerminated(_cgiPip);
             }
         }
 
@@ -656,7 +661,6 @@ namespace ws {
 
         enum CgiState {
 			CGI_OFF,
-            CGI_ACTIVE,
             CGI_PIPE_READY,
             CGI_SUPERVISE
         };
@@ -669,7 +673,6 @@ namespace ws {
         void sendChunk(enum CgiState cgiState) {
             if (isCgiActive()) {
                 if (cgiState == CGI_PIPE_READY) {
-                    //std::cout << "reading from pipe" << std::endl;
                     readingFromCgiPipe();
                 } else {
                     supervising();
