@@ -7,10 +7,9 @@ namespace ws {
     class Application {
         Config* mConfig;
 
-        Application() {
-            throw std::runtime_error("don't call default constructor, Idiot!");
-        }
-
+        Application();
+        Application( Application const& other);
+        Application& operator=( Application const& rhs );
     public:
         Application( Config* config ): mConfig(config) {
 

@@ -1,4 +1,0 @@
-- when taking values as string make sure not to include close bracket as well (check last value is equal "}")
-- check whether keyword valid inside each block
-- one way to detect block is matching keyword + '{'
-- create template config file

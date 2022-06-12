@@ -5,6 +5,8 @@
 #include <fstream>
 #include <stack>
 #include <cstring>
+#include <string>
+#include <limits>
 
 #include "config_model.hpp"
 #include "defaults.hpp"
@@ -81,11 +83,20 @@ namespace ws {
                 std::map<std::string, std::vector<std::string> > dataKeyValue = getServerBlockKeyValue(serversBlocksData[i]);
                 serverBlock.setDataKeyValue(dataKeyValue);
 
-                std::vector<std::string> locationBlockData = getLocationBlocksData(serversBlocksData[i]);
-                checkingEmptyBlock(locationBlockData);
+                std::vector<std::pair<std::string, std::string> > locationBlockData = getLocationBlocksData(serversBlocksData[i]);
+
+                {
+                    std::vector<std::string> locationBlocksDataOnly;
+                    for (size_t i = 0; i < locationBlockData.size(); i++) {
+                        locationBlocksDataOnly.push_back(locationBlockData[i].second);
+                    }
+                    checkingEmptyBlock(locationBlocksDataOnly);
+                }
+
                 for (size_t j = 0; j < locationBlockData.size(); j++) {
                     LocationBlock locationBlock;
-                    std::map<std::string, std::vector<std::string> > locationDataKeyValue = getLocationBlockKeyValue(locationBlockData[i]);
+                    locationBlock.path = locationBlockData[j].first;
+                    std::map<std::string, std::vector<std::string> > locationDataKeyValue = getLocationBlockKeyValue(locationBlockData[j].second);
                     locationBlock.setDataKeyValue(locationDataKeyValue);
                     serverBlock.locations.push_back(locationBlock);
                 }
@@ -130,8 +141,8 @@ namespace ws {
             return dataKeyValue;
         }
 
-        std::vector<std::string> getLocationBlocksData(std::string const& data) const {
-            std::vector<std::string> locationBlocksData;
+        std::vector<std::pair<std::string, std::string> > getLocationBlocksData( std::string const& data ) const {
+            std::vector<std::pair<std::string, std::string> > locationBlocksData;
 
             for (size_t i = 0; data[i]; i++) {
 
@@ -141,12 +152,30 @@ namespace ws {
                     if (end == -1) {
                         throw ParsingException(formatMessage("there was an error in location block"));
                     }
-                    locationBlocksData.push_back(data.substr(start, end - start  + 1));
+                    std::string locationPath = extractLocationPath(data, start - 2);
+                    locationBlocksData.push_back( std::make_pair(locationPath, data.substr(start, end - start  + 1)) );
                 }
 
             }
 
             return locationBlocksData;
+        }
+
+        std::string extractLocationPath( std::string const& data, size_t start ) const {
+            std::string locationPath;
+
+            size_t i = start;
+            while (isWhitespace(data[i]) || data[i] == '\n')
+                i--;
+
+            while (!isWhitespace(data[i])) {
+                locationPath += data[i];
+                i--;
+            }
+
+            std::string reverse = reverseString(locationPath);
+
+            return reverse;
         }
 
         int64_t findFirstIndexOfLocationBlock( std::string const& data, size_t start ) const {
@@ -395,6 +424,7 @@ namespace ws {
             i = newData.size() - 1;
             while (i > 0 && ( newData[i] == ' ' || newData[i] == '\t')) {
                 newData.pop_back();
+
                 if ( i == 0 && (newData[i] == ' ' || newData[i] == '\t') ) {
                     break;
                 }
@@ -505,7 +535,7 @@ namespace ws {
             return values;
         }
 
-        std::string getKeyInLine(std::string const& lineData ) const {
+        std::string getKeyInLine( std::string const& lineData ) const {
             std::string key;
             size_t i = 0;
             while ( lineData[i] && (lineData[i] == ' ' || lineData[i] == '\t') )
@@ -518,7 +548,7 @@ namespace ws {
             return key;
         }
 
-        bool isWhitespace(char c) const {
+        bool isWhitespace( char c ) const {
             if (c == ' ' || c == '\t')
                 return true;
             return false;
@@ -528,37 +558,54 @@ namespace ws {
          *  processing server and location key values
          */
 
-        void process(std::vector<ServerBlock>& serversBlock) const {
+        void process( std::vector<ServerBlock>& serversBlock ) const {
             for (size_t i = 0; i< serversBlock.size(); i++) {
                 processServerBlock(serversBlock[i]);
             }
         }
 
-        void processServerBlock(ServerBlock& sb) const {
+        void processServerBlock( ServerBlock& sb ) const {
             MapKeyValue kv = sb.getDataKeyValue();
 
-            // host and port
             std::pair<std::string, uint16_t> hostAndPort = getHostAndPort(kv);
             sb.host = hostAndPort.first;
             sb.port = hostAndPort.second;
             sb.serverNames = getServerNames(kv);
             sb.errorPages = getErrorPages(kv);
             sb.root = getRoot(kv);
-            sb.maxBodySize = getMaxClientSize(kv);
+            sb.maxBodySize = getMaxBodySize(kv);
+            sb.allowedMethods = getAllowedMethods(kv);
+            sb.uploadStore = getUploadStore(kv);
+            sb.indexFile = getIndexfile(kv);
+            sb.autoindex = getAutoindex(kv);
+
+            for (size_t i = 0; i < sb.locations.size(); i++) {
+                processLocationBlock(sb.locations[i]);
+            }
         }
 
-        MapKeyValueIter getKeyIter(MapKeyValue& kv, std::string const& keyword, size_t nvalues, bool mustFound = false) const {
+        void processLocationBlock( LocationBlock& lb ) const {
+            MapKeyValue kv = lb.getDataKeyValue();
+
+            lb.allowedMethods = getAllowedMethods(kv);
+            lb.autoindex = getAutoindex(kv);
+            lb.root = getRoot(kv);
+            lb.uploadStore = getUploadStore(kv);
+            lb.redirect = getRedirection(kv);
+        }
+
+        MapKeyValueIter getKeyIter( MapKeyValue& kv, std::string const& keyword, size_t nvalues, bool mustFound = false ) const {
             MapKeyValueIter iter = kv.find(keyword);
             if (mustFound && iter == kv.end()) {
                 throw ParsingException(formatMessage("`%s` keyword not found", keyword.c_str()));
             } else if (iter != kv.end() && (*iter).second.size() > nvalues) {
-                throw ParsingException(formatMessage("found more than one value for keyword `%s`", keyword.c_str()));
+                throw ParsingException(formatMessage("found more than %d values for keyword `%s`", nvalues, keyword.c_str()));
             }
 
             return iter;
         }
 
-        std::pair<std::string, uint16_t> getHostAndPort(MapKeyValue& kv) const {
+        std::pair<std::string, uint16_t> getHostAndPort( MapKeyValue& kv ) const {
             MapKeyValueIter iter = getKeyIter(kv, "listen", 1, true);
 
             std::vector<std::string> hostAndPort = split((*iter).second.front(), ":");
@@ -566,17 +613,17 @@ namespace ws {
                 throw ParsingException(formatMessage("port not found"));
             }
 
-            std::string host = hostAndPort.front();
+            std::string const& host = hostAndPort.front();
 
             // validating port
-            std::string portString = hostAndPort.back();
+            std::string const& portString = hostAndPort.back();
             uint64_t port;
-            if (isNumber(portString)) {
+            if (!isNumber(portString)) {
                 throw ParsingException(formatMessage("couldn't parse port number"));
             }
             try {
                 port = stoul(portString);
-            } catch (std::invalid_argument& e) {
+            } catch (std::exception& e) {
                 throw ParsingException(formatMessage("couldn't parse port number"));
             }
             if (port > std::numeric_limits<uint16_t>::max()) {
@@ -587,7 +634,7 @@ namespace ws {
             return std::make_pair(host, static_cast<uint16_t>(port));
         }
 
-        std::vector<std::string> getServerNames(MapKeyValue& kv) const {
+        std::vector<std::string> getServerNames( MapKeyValue& kv ) const {
             MapKeyValueIter iter = getKeyIter(kv, "server_names", defaults::SERVER_NAMES_LIMIT);
             if (iter == kv.end()) {
                 return std::vector<std::string>();
@@ -596,7 +643,7 @@ namespace ws {
             }
         }
 
-        std::map<int, std::string> getErrorPages(MapKeyValue& kv) const {
+        std::map<int, std::string> getErrorPages( MapKeyValue& kv ) const {
             std::map<int, std::string> errorPages;
             std::pair<int, std::string> errorPair;
 
@@ -693,7 +740,7 @@ namespace ws {
             return errorPages;
         }
 
-        std::string getRoot(MapKeyValue& kv) const {
+        std::string getRoot( MapKeyValue& kv ) const {
             std::string root;
 
             MapKeyValueIter iter = getKeyIter(kv, "root", 1);
@@ -706,27 +753,117 @@ namespace ws {
             return root;
         }
 
-        size_t  getMaxBodySize(MapKeyValue& kv) const {
+        size_t  getMaxBodySize( MapKeyValue& kv ) const {
             MapKeyValueIter iter = getKeyIter(kv, "client_max_body_size", 1);
             size_t maxBodySize = defaults::UNLIMITED_BODY_SIZE;
 
-            //TODO: continue
-            if (isNumber((*iter).second.front())) {
-                std::stoi((*iter).second.front());
-            }
+            if (iter != kv.end()) {
+                std::string const& value = (*iter).second.front();
+                if (!isNumber(value)) {
+                    throw ParsingException(formatMessage("couldn't parse max body size number"));
+                }
 
+                try {
+                    maxBodySize = static_cast<size_t>(std::stoul(value));
+                } catch (std::exception& e) {
+                    throw ParsingException(formatMessage("failed to convert `client_max_body_size` string to integer"));
+                }
+            }
 
             return maxBodySize;
         }
 
-//      std::vector<std::string> getAllowedMethods(MapKeyValue& kv) const {
-//          MapKeyValueIter iter = getKeyIter(kv, "allow", defaults::ALLOWED_METHOD_LIMIT, true);
-//      }
+        std::vector<HttpMethods> getAllowedMethods( MapKeyValue& kv ) const {
+            MapKeyValueIter iter = getKeyIter(kv, "allow", defaults::HTTP_METHODS_SIZE);
 
+            if (iter == kv.end()) {
+                return defaults::ALLOWED_METHODS;
+            }
 
-        /*
-         * Exceptions
-         */
+            std::vector<HttpMethods> allowedMethods;
+            std::vector<std::string> const& allowed = (*iter).second;
+            for (size_t i = 0; i < allowed.size(); i++) {
+                if (allowed[i] == "GET") {
+                    allowedMethods.push_back(HttpMethods::GET);
+                } else if (allowed[i] == "POST") {
+                    allowedMethods.push_back(HttpMethods::POST);
+                } else if (allowed[i] == "DELETE") {
+                    allowedMethods.push_back(HttpMethods::DELETE);
+                } else {
+                    throw ParsingException(formatMessage("Unknown http method `%s`", allowed[i].c_str()));
+                }
+            }
+
+            return allowedMethods;
+        }
+
+        std::string getUploadStore( MapKeyValue& kv ) const {
+            MapKeyValueIter iter = getKeyIter(kv, "upload_store", 1);
+
+            if (iter == kv.end()) {
+                return defaults::UPLOAD_STORE;
+            }
+
+            std::string const& uploadStore = (*iter).second.front();
+
+            return uploadStore;
+        }
+
+        std::string getIndexfile( MapKeyValue& kv ) const {
+            MapKeyValueIter iter = getKeyIter(kv, "index", 1);
+
+            if (iter == kv.end()) {
+                return defaults::INDEX;
+            } else {
+                return (*iter).second.front();
+            }
+        }
+
+        bool getAutoindex( MapKeyValue& kv ) const {
+            MapKeyValueIter iter = getKeyIter(kv, "autoindex", 1);
+
+            if (iter == kv.end()) {
+                return defaults::AUTOINDEX;
+            } else {
+                std::string const& value = (*iter).second.front();
+                if (value == "on") {
+                    return true;
+                } else if (value == "off") {
+                    return false;
+                } else {
+                    throw ParsingException(formatMessage("Unknown value `%s` for keyword autoindex", value.c_str()));
+                }
+            }
+        }
+
+        std::pair<int, std::string> getRedirection( MapKeyValue& kv ) const {
+            MapKeyValueIter iter = getKeyIter(kv, "return", 2);
+
+            if (iter == kv.end()) {
+                return defaults::EMPTY_REDIRECT;
+            }
+            if ((*iter).second.size() < 2) {
+                throw ParsingException(formatMessage("return must have two values"));
+            }
+
+            // parsing status code
+            std::string const& statusCodeStr = (*iter).second.front();
+            if (!isNumber(statusCodeStr)) {
+                throw ParsingException(formatMessage("status code isn't a number"));
+            }
+            int statusCode = -1;
+            try {
+                statusCode = std::stoul(statusCodeStr);
+            } catch (std::exception& e) {
+                throw ParsingException(formatMessage("couldn't convert status code string to integer"));
+            }
+            if (statusCode == -1) {
+                throw ParsingException(formatMessage("illegal state: problem encountered while parsing status code"));
+            }
+
+            return std::make_pair(statusCode, (*iter).second.back());
+        }
+
     public:
         class PathException : public std::exception {
         public:

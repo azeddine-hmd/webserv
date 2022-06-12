@@ -6,19 +6,27 @@
 
 namespace ws {
 
+    typedef enum HttpMethods {
+        GET,
+        POST,
+        DELETE
+    } HttpMethods;
+
     class LocationBlock {
         std::map <std::string, std::vector<std::string> >   dataKeyValue;
 
     public:
         std::string                                         path;
-        std::vector <std::string>                           allowedMethods;
-        std::string                                         autoIndex;
-        std::string                                         uploadStore;
-        std::string                                         cgiPath;
-        std::vector <std::string>                           cgiExit;
         std::string                                         root;
-        std::string                                         returnCode;
-        std::string                                         returnPath;
+        std::vector<HttpMethods>                            allowedMethods;
+        bool                                                autoindex;
+        std::string                                         uploadStore;
+        std::pair<int, std::string>                         redirect;
+
+        //TODO: what data cgi needs?
+        //std::string                                         cgiPath;
+        //std::vector<std::string>                            cgiExit;
+
 
     public:
         std::map<std::string, std::vector<std::string> > const& getDataKeyValue() const {
@@ -37,12 +45,14 @@ namespace ws {
         std::vector<LocationBlock>                          locations;
         std::string                                         host;
         uint16_t                                            port;
-        std::vector <std::string>                           serverNames;
+        std::vector<std::string>                            serverNames;
         std::map<int, std::string>                          errorPages;
         std::string                                         root;
         std::string                                         uploadStore;
-        std::string                                         maxBodySize;
+        size_t                                              maxBodySize;
+        std::vector<HttpMethods>                            allowedMethods;
         std::string                                         indexFile;
+        bool                                                autoindex;
 
     public:
         std::map<std::string, std::vector<std::string> > const& getDataKeyValue() const {

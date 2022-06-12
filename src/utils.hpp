@@ -55,7 +55,23 @@ namespace ws {
     }
 
     bool isNumber(std::string const& str) {
-        return str.find_first_of("0123456789") == std::string::npos;
+        for (size_t i = 0; i < str.size(); i++) {
+            if (!std::isdigit(str[i])) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    std::string reverseString(std::string const& str) {
+        std::string reversed;
+
+        for (int64_t i = str.size() - 1; i >= 0; i--) {
+            reversed += str[i];
+        }
+
+        return reversed;
     }
 
 }

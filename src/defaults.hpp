@@ -1,5 +1,7 @@
 #pragma once
 
+#include "config_model.hpp"
+
 namespace ws {
     namespace defaults {
 
@@ -20,10 +22,8 @@ namespace ws {
         char const* PATH_ERROR_PAGE_504 = "resources/error_pages/504.html";
         char const* PATH_ERROR_PAGE_505 = "resources/error_pages/505.html";
 
-        char const *ALLOWED[] = {
-                "GET",
-                "POST"
-        };
+        size_t HTTP_METHODS_SIZE = 3;
+        std::vector<HttpMethods> ALLOWED_METHODS = {HttpMethods::GET, HttpMethods::POST};
 
         char const* INDEX = "index.html";
 
@@ -35,7 +35,10 @@ namespace ws {
 
         size_t SERVER_NAMES_LIMIT = 10;
 
-        size_t ALLOWED_METHOD_LIMIT = 3;
+        bool AUTOINDEX = false;
+
+        std::pair<int, std::string> EMPTY_REDIRECT(-1, "");
+
 
     } // namespace defaults
 } // namespace ws

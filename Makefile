@@ -2,9 +2,8 @@ NAME = server
 
 CC = c++
 
-UNUSED_FLAGS = -Wno-unused-variable -Wno-unused-parameter
-FLAGS = -Wall -Werror -Wextra -std=c++98
-FLAGS_DEBUG = -Wall -Werror -Wextra -std=c++98 -g3 $(UNUSED_FLAGS) #-fsanitize=address
+DEBUG = -g3 -Wno-unused-variable -Wno-unused-parameter #-fsanitize=address
+FLAGS = -Wall -Werror -Wextra $(DEBUG) #-std=c++98
 
 
 FLAGS_EMPTY =
@@ -19,7 +18,7 @@ CLIENT_OBJ = $(CLIENT_SRC:.c=.o)
 all: $(NAME)
 
 $(NAME): clean
-	@$(CC) $(FLAGS_DEBUG) $(SRC) -o $(NAME)
+	@$(CC) $(FLAGS) $(SRC) -o $(NAME)
 
 client: clean
 	@$(CC) $(FLAGS) $(CLIENT_SRC) -o client
@@ -28,7 +27,7 @@ clean:
 	@rm -f $(OBJ) $(CLIENT_OBJ) $(NAME) client
 
 test_config: tests/config.cpp
-	@$(CC) $(FLAGS_DEBUG_UNUSED) $< -o tester
+	@$(CC) $(FLAGS) $< -o tester
 
 re: clean all
 
