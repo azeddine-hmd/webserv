@@ -12,6 +12,7 @@
 #include <poll.h>
 #include <sys/time.h>
 #include <sys/stat.h>
+#include <sys/wait.h>
 
 #define _Error_ "HTTP/1.1 500 Internal Server Error\r\n"
 
@@ -29,18 +30,16 @@ class cgi {
 	public:
 		cgi( void ) {}
 		cgi( Request ReqData, String root) {
-            this->_ScriptPath = root + "get.php";
+            this->_ScriptPath = root + "post.php";
             this->_Method = ReqData.getHeader("Method");
             this->_Buffer = String();
             this->_Query = String();
             String Path = ReqData.getHeader("Path");
             // Query Parsing
-            if (Path.find('?') != std::string::npos) {
-                if (this->_Method == "GET") {
+            if (_Method == "POST")
+                this->_Query = ReqData.getBody();            
+            else if (_Method == "GET" && Path.find('?') != std::string::npos) {
                     this->_Query = Path.substr(Path.find("?")+1, Path.length());
-                }
-                else
-                    this->_Query = ReqData.getBody();            
             }
             InitMetaVariables(ReqData);
         }
@@ -56,8 +55,7 @@ class cgi {
             if (this->_Query.length())
                 setenv("QUERY_STRING", this->_Query.c_str(), 1);
             setenv("REQUEST_METHOD", this->_Method.c_str(), 1);
-            std::string test = "/home/mouad/schoolProjects/networking/www/get.php";
-            setenv("SCRIPT_FILENAME", test.c_str(), 1);
+            setenv("SCRIPT_FILENAME", this->_ScriptPath.c_str(), 1);
             setenv("REDIRECT_STATUS", "true", 1);
             if (this->_ScriptPath.find(".php") != std::string::npos)
                 this->_Bin = "/usr/bin/php-cgi";
@@ -78,13 +76,13 @@ class cgi {
             struct pollfd   fds;
             int             rc;
 
-            fds.fd = fd2[1];
-            fds.events = POLLOUT;
-            if ((rc = poll(&fds, 1, 0)) < 0)
-                return (0);
-            if (fds.revents & POLLOUT) 
-                write(fds.fd, this->_Query.c_str(), this->_Query.length());
-            dup2(fd2[0], 0);
+            // dup2(fd2[0], 0);
+            // fds.fd = fd2[1];
+            // fds.events = POLLOUT;
+            // if ((rc = poll(&fds, 1, 0)) < 0)
+            //     return (0);
+            // if (fds.revents & POLLOUT) 
+            //     write(fd2[1], this->_Query.c_str(), this->_Query.length());
         	dup2(fd[1], 1);
             close (fd2[0]);
             close(fd2[1]);
@@ -115,7 +113,6 @@ class cgi {
                 close(fd[1]);
             }
             else if (this->_Method == "POST") {
-
                     pipe(fd);
                     pipe(fd2);
                     pid = fork();
@@ -129,8 +126,20 @@ class cgi {
                     close(fd2[0]);
                     close(fd2[1]);
             }
-            // need to wait for child process to be terminated
-                // - maybe later :)
+            // wait for child process to exit
+
+	        int status;
+	        time_t t = time(NULL);
+	        while ((time(NULL) - t) < 3) {
+	        	if (waitpid(pid, &status, WNOHANG) > 0)
+	        			break ;
+	        }
+	        if (WEXITSTATUS(status) || kill(pid, SIGKILL) == 0)
+            {
+                close(fd[0]);
+                return (std::make_pair("500", _Error_));
+            }
+
             // parse executed program output and store it
             fds.fd = fd[0];
             fds.events = POLLIN;
