@@ -10,6 +10,7 @@
 void intercept(int sig) {
     (void)sig;
     //TODO: close all files descriptors
+    kill(getpid(), SIGKILL);
     exit(EXIT_SUCCESS);
 }
 
@@ -20,6 +21,8 @@ int     main( int argc, char **argv ) {
     }
     signal(SIGINT, intercept);
     signal(SIGTERM, intercept);
+    signal(SIGSEGV, intercept);
+    signal(SIGPIPE, intercept);
 
     // create config
     ws::Config * config;

@@ -2,11 +2,8 @@ NAME = server
 
 CC = c++
 
-DEBUG = -g3 -Wno-unused-variable -Wno-unused-parameter #-fsanitize=address
+DEBUG = -g3 -Wno-unused-variable -Wno-unused-parameter -Wno-unused-private-field #-fsanitize=address
 FLAGS = -Wall -Werror -Wextra $(DEBUG) #-std=c++98
-
-
-FLAGS_EMPTY =
 
 SRC =	src/main.cpp \
 		src/mimeTypes.cpp \

@@ -23,7 +23,13 @@ namespace ws {
         char const* PATH_ERROR_PAGE_505 = "resources/error_pages/505.html";
 
         size_t HTTP_METHODS_SIZE = 3;
-        std::vector<HttpMethods> ALLOWED_METHODS = {HttpMethods::GET, HttpMethods::POST};
+
+        HttpMethods ALLOWED_METHODS[] = {
+                GET,
+                POST,
+        };
+        size_t ALLOWED_METHODS_SIZE = 3;
+
 
         char const* INDEX = "index.html";
 

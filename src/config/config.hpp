@@ -635,7 +635,7 @@ namespace ws {
         }
 
         std::vector<std::string> getServerNames( MapKeyValue& kv ) const {
-            MapKeyValueIter iter = getKeyIter(kv, "server_names", defaults::SERVER_NAMES_LIMIT);
+            MapKeyValueIter iter = getKeyIter(kv, "server_names", defaults::SERVER_NAMES_LIMIT, true);
             if (iter == kv.end()) {
                 return std::vector<std::string>();
             } else {
@@ -777,18 +777,22 @@ namespace ws {
             MapKeyValueIter iter = getKeyIter(kv, "allow", defaults::HTTP_METHODS_SIZE);
 
             if (iter == kv.end()) {
-                return defaults::ALLOWED_METHODS;
+                std::vector<HttpMethods> allowedMethods;
+                for (size_t i = 0; i < defaults::ALLOWED_METHODS_SIZE; i++) {
+                    allowedMethods.push_back(defaults::ALLOWED_METHODS[i]);
+                }
+                return allowedMethods;
             }
 
             std::vector<HttpMethods> allowedMethods;
             std::vector<std::string> const& allowed = (*iter).second;
             for (size_t i = 0; i < allowed.size(); i++) {
                 if (allowed[i] == "GET") {
-                    allowedMethods.push_back(HttpMethods::GET);
+                    allowedMethods.push_back(GET);
                 } else if (allowed[i] == "POST") {
-                    allowedMethods.push_back(HttpMethods::POST);
+                    allowedMethods.push_back(POST);
                 } else if (allowed[i] == "DELETE") {
-                    allowedMethods.push_back(HttpMethods::DELETE);
+                    allowedMethods.push_back(DELETE);
                 } else {
                     throw ParsingException(formatMessage("Unknown http method `%s`", allowed[i].c_str()));
                 }
@@ -882,7 +886,7 @@ namespace ws {
             /*
              * message (char*) that holds exception description, should be allocated via malloc(3)
              */
-            explicit ParsingException( char *message ): msg(message) {
+            explicit ParsingException( char* message ): msg(message) {
 
             }
 
