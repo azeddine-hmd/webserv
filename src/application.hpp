@@ -20,31 +20,23 @@ namespace ws {
             delete mConfig;
         }
 
+        /*
+         *  Run application and initialize all servers
+         */
         void run( Config* config ) {
             mConfig = config;
-            std::cout << "===[ Application started ]===" << std::endl;
+            std::cout << "===[ Application running ]===" << std::endl;
             std::vector<Server> servers = initServers(config->serverBlocks);
             startEngine(servers);
         }
 
-        std::vector<Server> initServers( std::vector<ServerBlock>& serverBlocks ) const {
-            std::vector<Server> servers;
-
-            for (size_t i = 0; i < serverBlocks.size(); i++) {
-                Server server(serverBlocks[i]);
-                servers.push_back(server);
-            }
-
-            return servers;
-        }
-
+        /*
+         *  Runs all servers
+         */
         void startEngine( std::vector<Server> servers ) const {
-            long valread;
             std::vector<Request> active;
 
             Server& s1 = servers[0];
-            servers.push_back(s1);
-            //servers.push_back(s1.getFd());
             fd_set master_read, master_write;
             FD_ZERO(&master_read);
             FD_ZERO(&master_write);
@@ -95,6 +87,17 @@ namespace ws {
             }
         }
 
+    private:
+        std::vector<Server> initServers( std::vector<ServerBlock>& serverBlocks ) const {
+            std::vector<Server> servers;
+
+            for (size_t i = 0; i < serverBlocks.size(); i++) {
+                Server server(serverBlocks[i]);
+                servers.push_back(server);
+            }
+
+            return servers;
+        }
     };
 
 }

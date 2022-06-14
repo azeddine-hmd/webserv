@@ -10,8 +10,6 @@
 #include "responseBuilder.hpp"
 #include "config/config_model.hpp"
 
-#define PORT 8080
-
 namespace ws {
 
     class Server {
@@ -25,29 +23,14 @@ namespace ws {
 
         Server();
     public:
+
+        /*
+         *  creates server then binds and listen
+         */
         Server( ServerBlock& serverBlock ): mServerBlock(serverBlock) {
-            mAddress = getSocketAddress();
-            if ((mSfd = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
-                perror("In socket");
-                exit(EXIT_FAILURE);
-            }
-
-            fcntl(mSfd, F_SETFL, O_NONBLOCK);
-
-            if (bind( mSfd, (sockaddr*)&mAddress, sizeof(mAddress) ) < 0) {
-                close(mSfd);
-                perror("In bind");
-                exit(EXIT_FAILURE);
-            }
-
-            if (listen(mSfd, MAX_LISTENERS) < 0) {
-                perror("In listen");
-                exit(EXIT_FAILURE);
-            }
-
             mHost = mServerBlock.serverNames.front() + ":" + std::to_string(mServerBlock.port);
-            //TODO: continue
-
+            mAddress = getSocketAddress();
+            mSfd = getSocketFileDescriptor();
         }
 
         int getFd() const {
@@ -76,6 +59,29 @@ namespace ws {
             return socketAddress;
         }
 
+        int getSocketFileDescriptor() const {
+            int sfd;
+
+            if ((sfd = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
+                perror("In socket");
+                exit(EXIT_FAILURE);
+            }
+
+            fcntl(sfd, F_SETFL, O_NONBLOCK);
+
+            if (bind(sfd, (sockaddr*)&mAddress, sizeof(mAddress)) < 0) {
+                close(sfd);
+                perror("In bind");
+                exit(EXIT_FAILURE);
+            }
+
+            if (listen(sfd, MAX_LISTENERS) < 0) {
+                perror("In listen");
+                exit(EXIT_FAILURE);
+            }
+
+            return sfd;
+        }
     };
 
 } // namespace ws
