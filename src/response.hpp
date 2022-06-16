@@ -13,13 +13,15 @@
 #include <sys/time.h>
 #include <sys/stat.h>
 #include <sys/wait.h>
+#include <signal.h>
 
 #define _Error_ "HTTP/1.1 500 Internal Server Error\r\n"
+extern char **environ;
 
 class cgi {
 	private:
-		typedef typename std::pair<std::string, std::string>	pair;
-		typedef typename std::string							String;
+		typedef  std::pair<std::string, std::string>	pair;
+		typedef  std::string							String;
 
 		String	_ScriptPath;
         String  _Bin;
@@ -30,14 +32,22 @@ class cgi {
 	public:
 		cgi( void ) {}
 		cgi( Request ReqData, String root) {
-            this->_ScriptPath = root + "post.php";
+            this->_ScriptPath = root + "upload.php";
+            // std::cout << _ScriptPath << std::endl;
             this->_Method = ReqData.getHeader("Method");
             this->_Buffer = String();
             this->_Query = String();
             String Path = ReqData.getHeader("Path");
             // Query Parsing
+            
             if (_Method == "POST")
-                this->_Query = ReqData.getBody();            
+            {
+                char buffer[1024];
+                int fd = open(ReqData.getFile().c_str(), O_RDONLY);
+                int readRet = read(fd,buffer,1024);
+                close(fd);
+                this->_Query = std::string(buffer,readRet);            
+            }
             else if (_Method == "GET" && Path.find('?') != std::string::npos) {
                     this->_Query = Path.substr(Path.find("?")+1, Path.length());
             }
@@ -47,21 +57,26 @@ class cgi {
 
 		void    InitMetaVariables( Request Data ) {
             if (Data.getHeader("Content-Length").length())
+            {
                 setenv("CONTENT_LENGTH", Data.getHeader("Content-Length").c_str(), 1);
-            // if (Data.getHeader("Content-Type").length())
-            //     setenv("CONTENT_TYPE", Data.getHeader("Content-Type").c_str(), 1);
-            // else
-            //     setenv("CONTENT_TYPE", "text/html; charset=UTF-8", 1);
+            }
+            if (Data.getHeader("Content-Type").length())
+            {
+
+                setenv("CONTENT_TYPE", Data.getHeader("Content-Type").c_str(), 1);
+            }
+            else
+                setenv("CONTENT_TYPE", "text/html; charset=UTF-8", 1);
             if (this->_Query.length())
                 setenv("QUERY_STRING", this->_Query.c_str(), 1);
             setenv("REQUEST_METHOD", this->_Method.c_str(), 1);
             setenv("SCRIPT_FILENAME", this->_ScriptPath.c_str(), 1);
             setenv("REDIRECT_STATUS", "true", 1);
             if (this->_ScriptPath.find(".php") != std::string::npos)
-                this->_Bin = "/usr/bin/php-cgi";
+                this->_Bin = "/Users/mel-haya/.brew/bin/php-cgi";
             else
                 this->_Bin = "/usr/bin/python";
-            // setenv("SERVER_PROTOCOL", "HTTP/1.1", 1);
+            setenv("SERVER_PROTOCOL", "HTTP/1.1", 1);
         }
         
         void    execWithGET( char *args[3], int fd[2]) {
@@ -71,24 +86,45 @@ class cgi {
             std::cerr << "execve failed | errno: " << strerror(errno) << std::endl;
             exit(errno);
         }
+        /*
+            HTTP/1.1 200 OK
+            Date: Tue, 14 Jun 2022 22:29:18 UTC
+            /Users/mel-haya/.brew/bin/php-cgi <---
+            X-Powered-By: PHP/8.1.7
+            Content-type: text/html; charset=UTF-8
 
+            <html>
+            <body>
+
+            <form method="post" action="">
+            Name: <input type="text" name="fname">
+            <input type="submit">
+            </form>
+
+            <br />
+            <b>Warning</b>:  Undefined array key "fname" in <b>/Users/mel-haya/Desktop/webserv/www/post.php</b> on line <b>12</b><br />
+            Name is empty
+            </body>
+            </html>
+        */
         int execWithPOST( char *args[3], int fd[2], int fd2[2]) {
             struct pollfd   fds;
             int             rc;
 
-            // dup2(fd2[0], 0);
-            // fds.fd = fd2[1];
-            // fds.events = POLLOUT;
-            // if ((rc = poll(&fds, 1, 0)) < 0)
-            //     return (0);
-            // if (fds.revents & POLLOUT) 
-            //     write(fd2[1], this->_Query.c_str(), this->_Query.length());
+            fds.fd = fd2[1];
+            fds.events = POLLOUT;
+            if ((rc = poll(&fds, 1, 0)) < 0)
+                return (0);
+            if (fds.revents & POLLOUT)
+                write(fd2[1], this->_Query.c_str(), this->_Query.length());
+            dup2(fd2[0], 0);
         	dup2(fd[1], 1);
             close (fd2[0]);
             close(fd2[1]);
             close (fd[1]);
             execve(args[0], args, environ);
             std::cerr << "execve failed | errno: " << strerror(errno) << std::endl;
+
             exit(errno);
         }
 
@@ -170,7 +206,7 @@ class Response
 {
     private:
 
-        typedef typename std::pair<std::string, std::string>     pair;
+        typedef std::pair<std::string, std::string>     pair;
 
 
         std::string _Header;
@@ -185,7 +221,7 @@ class Response
 
     public:
 
-        Response (Request& request) : _req(request), _Cgi(request, "/home/mouad/schoolProjects/networking/www/")
+        Response (Request& request) : _req(request), _Cgi(request, "/Users/mel-haya/Desktop/webserv/www/")
         {
             _Header = std::string();
             _Body = std::string();
@@ -251,9 +287,9 @@ class Response
             if (_req.getHeader("Path").find(".php") != std::string::npos 
                 || _req.getHeader("Path").find(".py") != std::string::npos)
             {
+                std::cout << "in cgi" << std::endl;
                 pair status = _Cgi.execute(); // return pair(string status code, string status msg)
                 //cgi can eather return content or status codes (400 || 500 || 301 || 302)
-                // if (status.first[0] == '5' || status.first[0] == '4')
                     // should build Error
                 // else if (redirection for later)
                 _Header += status.second + _Date;

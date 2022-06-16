@@ -7,13 +7,18 @@
 #include <unistd.h>
 #include <sstream>
 #include <cstdlib>
-#include "chunkedDecoder.hpp"
 
 
 std::string getNextLine(std::string& buffer);
+
+struct BodyFile
+{
+	public:
+		int 		fd;
+		std::string name;
+};
+
 #define BUFFER_SIZE 1024
-
-
 
 class Request
 {
@@ -25,11 +30,8 @@ class Request
 		bool								_RequestDone; // true when req is done
 		BodyFile							_BodyFile;
 		size_t								_bodySize;	
-		size_t								_targetSize;							
+		size_t								_targetSize;				
 
-		Request( void ) {
-
-		}
 	public:
 		Request( int fd ) {
 			_SockFd 		= fd;
@@ -54,11 +56,15 @@ class Request
 			std::string str = getNextLine(_BodyBuffer);
 			if(str.size() == 0)
 				return -1;
-			std::stringstream ss(str);
-			std::string key;
-			ss >> key;
-			key.pop_back();
-			ss >> _Headers[key];
+			int pos = str.find(":");
+			std::string key = str.substr(0, pos);
+			str.erase(0, pos + 2);
+			_Headers[key] = str;
+			// std::stringstream ss(str);
+			// std::string key;
+			// ss >> key;
+			// key.pop_back();
+			// ss >> _Headers[key];
 			return 0;
 		}
 		// parse the whole header part of a request
@@ -73,7 +79,6 @@ class Request
 			{
 				std::istringstream iss(_Headers["Content-Length"]);
 				iss >> _targetSize;
-				// = std::stol(_Headers["Content-Length"]);
 			}
 			_HeaderDone = true;
 			if(_Headers["Method"] != "POST")
@@ -86,6 +91,12 @@ class Request
 				CreateFile();
 				write(_BodyFile.fd, _BodyBuffer.c_str(), _BodyBuffer.size());
 				_bodySize = _BodyBuffer.size();
+				if(_bodySize == _targetSize)
+				{
+					_RequestDone = true;
+					std::cout << "done" << std::endl;
+					return;
+				}
 			}
 		}
 		// get a parameter by key
@@ -107,37 +118,38 @@ class Request
 			return _SockFd;
 		}
 
+		std::string getFile()
+		{
+			return _BodyFile.name;
+		}
+
 		void CreateFile()
 		{
 			int random = (int)time(nullptr);
-			std::string n = std::string("USER_") + std::to_string(random);
+			std::string n = "www/uploads/upload_file"; //std::string("USER_") + std::to_string(random);
 			_BodyFile.fd = open(n.c_str(), O_CREAT | O_WRONLY, 0644);
 			_BodyFile.name = n;
 		}
 
-		// parse the header in the first call then reads a chunk of BUFFER_SIZE bits
 		void readChunk ( void ) {
 			if(_HeaderDone)
 			{
 				char buf[BUFFER_SIZE];
 				int ret = read(_SockFd, buf, BUFFER_SIZE);
+				std::string buffer = std::string(buf, ret);
 				_bodySize += ret;
-				//34756650
-				//34746613
-				// std::cout << _Headers["Content-Length"] << " : " << _bodySize << std::endl;
+				// if(ret > 0)
+				// {
+				// 	if(_BodyFile.fd == -1)
+				// 		CreateFile();
+				// 	write(_BodyFile.fd, buf, ret);
+				// }
 				if(ret > 0)
-				{
-					if(_BodyFile.fd == -1)
-						CreateFile();
 					write(_BodyFile.fd, buf, ret);
-					//std::cout << ret << std::endl;
-					
-				}
 				if(_bodySize == _targetSize)
 				{
 					_RequestDone = true;
 					std::cout << "done" << std::endl;
-					// exit(0);	
 					return;
 				}
 			}
