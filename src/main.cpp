@@ -21,7 +21,7 @@ int     main( int argc, char **argv ) {
     signal(SIGINT, intercept);
     signal(SIGTERM, intercept);
     signal(SIGSEGV, intercept);
-    signal(SIGPIPE, intercept);
+    signal(SIGPIPE, SIG_IGN);
     signal(SIGABRT, intercept);
 
     // create config
