@@ -68,6 +68,10 @@ namespace ws {
         void parseRequestHeader() {
             char buf[BUFFER_SIZE * 10];
             int ret = read(_SockFd, buf, BUFFER_SIZE * 10);
+            if (ret <= 0) {
+                throw std::runtime_error("error while reading");
+            }
+
             _BodyBuffer = std::string(buf, ret);
             parseFirstLine();
 
@@ -121,6 +125,8 @@ namespace ws {
             if (_HeaderDone) {
                 char buf[BUFFER_SIZE];
                 int ret = read(_SockFd, buf, BUFFER_SIZE);
+                if (ret <= 0)
+                    throw std::runtime_error("error while reading");
                 std::string buffer = std::string(buf, ret);
                 _bodySize += ret;
                 // if(ret > 0)
