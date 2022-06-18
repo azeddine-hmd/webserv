@@ -91,8 +91,8 @@ namespace ws {
         }
 
         void reset() {
-            //TODO: implement
             _req.reset();
+            _ResponseHeader.clear();
             _HeaderSent = false;
             mFinish = false;
         }

@@ -7,6 +7,7 @@
 #include <cstring>
 #include <string>
 #include <limits>
+#include <set>
 
 #include "config_model.hpp"
 #include "defaults.hpp"
@@ -561,6 +562,23 @@ namespace ws {
         void process( std::vector<ServerBlock>& serversBlock ) const {
             for (size_t i = 0; i< serversBlock.size(); i++) {
                 processServerBlock(serversBlock[i]);
+                serversBlock[i].setHosts();
+            }
+            checkingDuplicateServerNames(serversBlock);
+        }
+
+        void checkingDuplicateServerNames( std::vector<ServerBlock>& serversBlock ) const {
+            std::set<std::string> serverNames;
+
+            for (size_t i = 0; i < serversBlock.size(); i++) {
+                ServerBlock& serverBlock = serversBlock[i];
+
+                for (size_t i = 0; i < serverBlock.hosts.size(); i++) {
+                    std::string& serverName = serverBlock.hosts[i];
+                    if ( !serverNames.insert(serverName).second )
+                        throw ParsingException(formatMessage("duplicate server names were found `%s`", serverName.c_str()));
+                }
+
             }
         }
 
@@ -570,7 +588,7 @@ namespace ws {
             std::pair<std::string, uint16_t> hostAndPort = getHostAndPort(kv);
             sb.host = hostAndPort.first;
             sb.port = hostAndPort.second;
-            sb.serverName = getServerName(kv);
+            sb.serverNames = getServerNames(kv);
             sb.errorPages = getErrorPages(kv);
             sb.root = getRoot(kv);
             sb.maxBodySize = getMaxBodySize(kv);
@@ -594,7 +612,12 @@ namespace ws {
             lb.redirect = getRedirection(kv);
         }
 
-        MapKeyValueIter getKeyIter( MapKeyValue& kv, std::string const& keyword, size_t nvalues, bool mustFound = false ) const {
+        MapKeyValueIter getKeyIter(
+                MapKeyValue& kv,
+                std::string const& keyword,
+                size_t nvalues,
+                bool mustFound = false
+        ) const {
             MapKeyValueIter iter = kv.find(keyword);
             if (mustFound && iter == kv.end()) {
                 throw ParsingException(formatMessage("`%s` keyword not found", keyword.c_str()));
@@ -634,105 +657,45 @@ namespace ws {
             return std::make_pair(host, static_cast<uint16_t>(port));
         }
 
-        std::string getServerName( MapKeyValue& kv ) const {
-            MapKeyValueIter iter = getKeyIter(kv, "server_names", defaults::SERVER_NAMES_LIMIT, true);
-            return (*iter).second.front();
+        std::vector<std::string> getServerNames( MapKeyValue& kv ) const {
+            MapKeyValueIter iter = getKeyIter(kv, "server_names", defaults::VALUES_LIMIT, false);
+
+            if (iter == kv.end()) {
+                return std::vector<std::string>();
+            } else {
+                return (*iter).second;
+            }
+        }
+
+        std::pair<int, std::string> getErrorPagePair(
+                MapKeyValue& kv,
+                std::string key,
+                int errorNbr,
+                std::string defaultPath
+        ) const {
+            std::pair<int, std::string> errorPair;
+
+            MapKeyValueIter iter = getKeyIter(kv, key, 1);
+            if (iter == kv.end()) {
+                errorPair = std::make_pair(errorNbr, defaultPath);
+            } else {
+                errorPair = std::make_pair(errorNbr, (*iter).second.front());
+            }
+
+            return errorPair;
         }
 
         std::map<int, std::string> getErrorPages( MapKeyValue& kv ) const {
             std::map<int, std::string> errorPages;
-            std::pair<int, std::string> errorPair;
-
-            {
-                MapKeyValueIter iter = getKeyIter(kv, "error_page_204", 1);
-                if (iter == kv.end()) {
-                    errorPair = std::make_pair(204, defaults::PATH_ERROR_PAGE_204);
-                } else {
-                    errorPair = std::make_pair(204, (*iter).second.front());
-                }
-                errorPages.insert(errorPair);
-            }
-
-            {
-                MapKeyValueIter iter = getKeyIter(kv, "error_page_400", 1);
-                if (iter == kv.end()) {
-                    errorPair = std::make_pair(400, defaults::PATH_ERROR_PAGE_400);
-                } else {
-                    errorPair = std::make_pair(400, (*iter).second.front());
-                }
-                errorPages.insert(errorPair);
-            }
-
-            {
-                MapKeyValueIter iter = getKeyIter(kv, "error_page_403", 1);
-                if (iter == kv.end()) {
-                    errorPair = std::make_pair(403, defaults::PATH_ERROR_PAGE_403);
-                } else {
-                    errorPair = std::make_pair(403, (*iter).second.front());
-                }
-                errorPages.insert(errorPair);
-            }
-
-            {
-                MapKeyValueIter iter = getKeyIter(kv, "error_page_404", 1);
-                if (iter == kv.end()) {
-                    errorPair = std::make_pair(404, defaults::PATH_ERROR_PAGE_404);
-                } else {
-                    errorPair = std::make_pair(404, (*iter).second.front());
-                }
-                errorPages.insert(errorPair);
-            }
-
-            {
-                MapKeyValueIter iter = getKeyIter(kv, "error_page_413", 1);
-                if (iter == kv.end()) {
-                    errorPair = std::make_pair(413, defaults::PATH_ERROR_PAGE_413);
-                } else {
-                    errorPair = std::make_pair(413, (*iter).second.front());
-                }
-                errorPages.insert(errorPair);
-            }
-
-            {
-                MapKeyValueIter iter = getKeyIter(kv, "error_page_500", 1);
-                if (iter == kv.end()) {
-                    errorPair = std::make_pair(500, defaults::PATH_ERROR_PAGE_500);
-                } else {
-                    errorPair = std::make_pair(500, (*iter).second.front());
-                }
-                errorPages.insert(errorPair);
-            }
-
-            {
-                MapKeyValueIter iter = getKeyIter(kv, "error_page_502", 1);
-                if (iter == kv.end()) {
-                    errorPair = std::make_pair(502, defaults::PATH_ERROR_PAGE_502);
-                } else {
-                    errorPair = std::make_pair(502, (*iter).second.front());
-                }
-                errorPages.insert(errorPair);
-            }
-
-            {
-                MapKeyValueIter iter = getKeyIter(kv, "error_page_504", 1);
-                if (iter == kv.end()) {
-                    errorPair = std::make_pair(504, defaults::PATH_ERROR_PAGE_504);
-                } else {
-                    errorPair = std::make_pair(504, (*iter).second.front());
-                }
-                errorPages.insert(errorPair);
-            }
-
-            {
-                MapKeyValueIter iter = getKeyIter(kv, "error_page_505", 1);
-                if (iter == kv.end()) {
-                    errorPair = std::make_pair(505, defaults::PATH_ERROR_PAGE_505);
-                } else {
-                    errorPair = std::make_pair(505, (*iter).second.front());
-                }
-                errorPages.insert(errorPair);
-            }
-
+            errorPages.insert( getErrorPagePair(kv, "error_page_204", 204, defaults::PATH_ERROR_PAGE_204) );
+            errorPages.insert( getErrorPagePair(kv, "error_page_400", 400, defaults::PATH_ERROR_PAGE_400) );
+            errorPages.insert( getErrorPagePair(kv, "error_page_403", 403, defaults::PATH_ERROR_PAGE_403) );
+            errorPages.insert( getErrorPagePair(kv, "error_page_404", 404, defaults::PATH_ERROR_PAGE_404) );
+            errorPages.insert( getErrorPagePair(kv, "error_page_413", 413, defaults::PATH_ERROR_PAGE_413) );
+            errorPages.insert( getErrorPagePair(kv, "error_page_500", 500, defaults::PATH_ERROR_PAGE_500) );
+            errorPages.insert( getErrorPagePair(kv, "error_page_502", 502, defaults::PATH_ERROR_PAGE_502) );
+            errorPages.insert( getErrorPagePair(kv, "error_page_504", 504, defaults::PATH_ERROR_PAGE_504) );
+            errorPages.insert( getErrorPagePair(kv, "error_page_505", 505, defaults::PATH_ERROR_PAGE_505) );
             return errorPages;
         }
 

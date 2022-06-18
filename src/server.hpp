@@ -16,7 +16,7 @@ namespace ws {
         ServerBlock&        mServerBlock;
         sockaddr_in         mAddress;
         socklen_t           mAddrlen;
-        int                 mSfd;
+        int                 mSocketFD;
         bool                mHaveBind;
 
         static const int    MAX_LISTENERS = 1024;
@@ -32,7 +32,7 @@ namespace ws {
             mAddress = getSocketAddress();
             mAddrlen = sizeof(sockaddr_in);
             mHaveBind = false;
-            mSfd = -1;
+            mSocketFD = -1;
         }
 
         Server& operator=( Server const& rhs ) {
@@ -40,24 +40,24 @@ namespace ws {
                 mServerBlock = rhs.mServerBlock;
                 mAddress = rhs.mAddress;
                 mAddrlen = rhs.mAddrlen;
-                mSfd = rhs.mSfd;
+                mSocketFD = rhs.mSocketFD;
             }
 
             return *this;
         }
 
         void start() {
-            mSfd = getSocketFileDescriptor();
+            mSocketFD = getSocketFileDescriptor();
         }
 
         void stop() {
             if (mHaveBind) {
-                close(mSfd);
+                close(mSocketFD);
             }
         }
 
         int getSocketFD() const {
-            return mSfd;
+            return mSocketFD;
         }
 
         sockaddr_in* getAddress() {
@@ -68,13 +68,12 @@ namespace ws {
             return &mAddrlen;
         }
 
-        //TODO: return vector instead
-        std::string getHost() const {
-            return mServerBlock.getHost();
-        }
-
         ServerBlock& getServerBlock() {
             return mServerBlock;
+        }
+
+        void setSocketFD(int socketFD) {
+            mSocketFD = socketFD;
         }
 
     private:

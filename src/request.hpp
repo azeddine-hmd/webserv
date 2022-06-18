@@ -150,11 +150,14 @@ namespace ws {
         }
 
         void reset() {
-            //TODO: implement
             _HeaderDone = false;
             _RequestDone = false;
             _BodyBuffer = "";
             _BodyFile.fd = -1;
+            _Headers.clear();
+            _BodyBuffer.clear();
+            _bodySize = 0;
+            _targetSize = 0;
         }
 
         std::string getHost() const {

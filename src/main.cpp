@@ -22,6 +22,7 @@ int     main( int argc, char **argv ) {
     signal(SIGTERM, intercept);
     signal(SIGSEGV, intercept);
     signal(SIGPIPE, intercept);
+    signal(SIGABRT, intercept);
 
     // create config
     ws::Config * config;

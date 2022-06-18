@@ -57,7 +57,8 @@ namespace ws {
         std::vector<LocationBlock>                          locations;
         std::string                                         host;
         uint16_t                                            port;
-        std::string                                         serverName;
+        std::vector<std::string>                            serverNames;
+        std::vector<std::string>                            hosts;
         std::map<int, std::string>                          errorPages;
         std::string                                         root;
         std::string                                         uploadStore;
@@ -76,8 +77,11 @@ namespace ws {
         }
 
         //TODO: return vector instead
-        std::string getHost() const {
-            return serverName + ":" + std::to_string(port);
+        void setHosts() {
+            std::string portString = std::to_string(port);
+            for (size_t i = 0; i < serverNames.size(); i++) {
+                hosts.push_back(serverNames[i] + ":" + portString);
+            }
         }
 
         ServerBlock& operator=( ServerBlock const& rhs ) {
@@ -85,7 +89,7 @@ namespace ws {
                 locations = rhs.locations;
                 host = rhs.host;
                 port = rhs.port;
-                serverName = rhs.serverName;
+                serverNames = rhs.serverNames;
                 errorPages = rhs.errorPages;
                 root = rhs.root;
                 uploadStore = rhs.uploadStore;

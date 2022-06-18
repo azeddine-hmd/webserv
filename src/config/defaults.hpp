@@ -39,7 +39,7 @@ namespace ws {
 
         size_t UNLIMITED_BODY_SIZE = 0;
 
-        size_t SERVER_NAMES_LIMIT = 10;
+        size_t VALUES_LIMIT = 999;
 
         bool AUTOINDEX = false;
 

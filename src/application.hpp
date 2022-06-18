@@ -28,8 +28,6 @@ namespace ws {
             for (size_t i = 0; i < mServers.size(); i++) {
                 mServers[i].stop();
             }
-
-            //TODO: debugging
             std::set<int>::iterator it = mTmpSockets.begin();
             for (; it != mTmpSockets.end(); it++) {
                 std::cout << "closing request socket: " << *it << std::endl;
@@ -63,7 +61,7 @@ namespace ws {
                 int ret = select(MAX_SOCKET_FD, &copy_read, &copy_write, &copy_error, NULL);
                 if (ret == -1) {
                     std::cout << "select: " << strerror(errno) << std::endl;
-                    sleep(1000);
+                    sleep(1);
                     continue;
                 }
 
@@ -79,10 +77,8 @@ namespace ws {
                             FD_CLR(req.getFd(), &master_read);
                             FD_SET(req.getFd(), &master_write);
 
-//                            Server * server = findServer(req.getHeader("Host"), req.getHost(), req.getPort());
-//                            ServerBlock& serverBlock = server->getServerBlock();
-
-                            responses.push_back(ResponseBuilder(req, /*TODO: remove it*/ mServers[0].getServerBlock()));
+                            ServerBlock& serverBlock = findServer(req.getHeader("Host"), req.getHost(), req.getPort()).getServerBlock();
+                            responses.push_back(ResponseBuilder(req, serverBlock));
 
                             requests.erase(requests.begin() + i);
                             i--;
@@ -98,11 +94,10 @@ namespace ws {
                         response.sendShunk();
                         if (response.isFinish()) {
                             FD_CLR(response.getResponseFd(), &master_write);
-                            // in case of request have keep-alive attribute
                             if (response.getRequest().getHeader("Connection") == "keep-alive") {
+                                std::cout << "reseting connection" << std::endl;
                                 response.reset();
                             } else {
-                                std::cout << std::endl << "response delivered" << std::endl;
                                 close(response.getResponseFd());
                                 mTmpSockets.erase( response.getResponseFd() );
                                 responses.erase(responses.begin() + i);
@@ -118,9 +113,6 @@ namespace ws {
                     Server& server = mServers[i];
 
                     if ( FD_ISSET(server.getSocketFD(), &copy_read)) {
-//                        if (socketAlreadyExist())
-//                            continue;
-
                         int new_socket = accept(server.getSocketFD(), (sockaddr *)(server.getAddress()), server.getAddrlen());
                         std::cout << "new_scoket: " << new_socket << std::endl;
                         if ( new_socket > 0 ) {
@@ -128,7 +120,6 @@ namespace ws {
                             uint16_t    port = server.getServerBlock().port;
                             requests.push_back(Request(new_socket, host, port));
                             mTmpSockets.insert(new_socket);
-                            std::cout << "inserting: " << new_socket << std::endl;
                             FD_SET(new_socket,&master_read);
                         }
 
@@ -156,23 +147,26 @@ namespace ws {
             return servers;
         }
 
-        //TODO: this function still have many bugs right now avoid calling it
-        Server* findServer( std::string const& hostAttribute , std::string host, uint16_t port ) {
+        Server& findServer( std::string const& hostAttribute , std::string host, uint16_t port ) {
+            // search by server_name:port
             for (size_t i = 0; i < mServers.size(); i++) {
-                if (mServers[i].getHost() == hostAttribute) {
-                    return &mServers[i];
+                Server& server = mServers[i];
+                for (size_t j = 0; j < server.getServerBlock().hosts.size(); j++) {
+                    std::string& serverHost = server.getServerBlock().hosts[i];
+                    if (serverHost == hostAttribute) {
+                        return server;
+                    }
                 }
             }
 
-            //TODO: continue
-            // if not server name matches select default server
+            // search by address:port
             for (size_t i = 0; i < mServers.size(); i++) {
-                if (mServers[i].getHost() == host) {
-                    return &mServers[i];
-                }
+                Server& server = mServers[i];
+                if (server.getServerBlock().host == host && server.getServerBlock().port == port)
+                    return server;
             }
 
-            return NULL;
+            throw std::logic_error(formatMessage("no server host `%s` were found with `%s:%d`", hostAttribute.c_str(), host.c_str(), port));
         }
 
         void initServersSockets(fd_set *master_read, fd_set *master_write, fd_set *master_error) const {
