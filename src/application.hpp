@@ -51,14 +51,13 @@ namespace ws {
         void startEngine() {
             std::vector<Request> requests;
             std::vector<ResponseBuilder> responses;
-            fd_set master_read, master_write, master_error;
-            initServersSockets(&master_read, &master_write, &master_error);
+            fd_set master_read, master_write;
+            initServersSockets(&master_read, &master_write);
 
             while (true) {
                 fd_set copy_read = master_read;
                 fd_set copy_write = master_write;
-                fd_set copy_error = master_error;
-                int ret = select(MAX_SOCKET_FD, &copy_read, &copy_write, &copy_error, NULL);
+                int ret = select(MAX_SOCKET_FD, &copy_read, &copy_write, NULL, NULL);
                 if (ret == -1) {
                     std::cout << "select: " << strerror(errno) << std::endl;
                     sleep(1);
@@ -71,15 +70,23 @@ namespace ws {
 
                     if ( FD_ISSET(req.getFd(), &copy_read) )
                     {
-                        req.readChunk();
+                        try {
+                            req.readChunk();
+                        } catch (std::runtime_error& e) {
+                            std::cout << e.what() << std::endl;
+                            close(req.getFd());
+                            FD_CLR(req.getFd(), &master_read);
+                            requests.erase(requests.begin() + i);
+                            i--;
+                            continue;
+                        }
+
                         if(req.getStatus())
                         {
                             FD_CLR(req.getFd(), &master_read);
                             FD_SET(req.getFd(), &master_write);
-
                             ServerBlock& serverBlock = findServer(req.getHeader("Host"), req.getHost(), req.getPort()).getServerBlock();
                             responses.push_back(ResponseBuilder(req, serverBlock));
-
                             requests.erase(requests.begin() + i);
                             i--;
                         }
@@ -95,14 +102,16 @@ namespace ws {
                         if (response.isFinish()) {
                             FD_CLR(response.getResponseFd(), &master_write);
                             if (response.getRequest().getHeader("Connection") == "keep-alive") {
-                                std::cout << "reseting connection" << std::endl;
+                                std::cout << "resetting connection" << std::endl;
                                 response.reset();
+                                requests.push_back(response.getRequest());
+                                FD_SET(response.getResponseFd(), &master_read);
                             } else {
                                 close(response.getResponseFd());
                                 mTmpSockets.erase( response.getResponseFd() );
-                                responses.erase(responses.begin() + i);
-                                i--;
                             }
+                            responses.erase(responses.begin() + i);
+                            i--;
                         }
 
                     }
@@ -114,7 +123,8 @@ namespace ws {
 
                     if ( FD_ISSET(server.getSocketFD(), &copy_read)) {
                         int new_socket = accept(server.getSocketFD(), (sockaddr *)(server.getAddress()), server.getAddrlen());
-                        std::cout << "new_scoket: " << new_socket << std::endl;
+                        fcntl(new_socket, F_SETFL, O_NONBLOCK); //TODO: maybe useless ?
+                        std::cout << "new_socket: " << new_socket << std::endl;
                         if ( new_socket > 0 ) {
                             std::string host = server.getServerBlock().host;
                             uint16_t    port = server.getServerBlock().port;
@@ -136,12 +146,22 @@ namespace ws {
 
         std::vector<Server> startServers( std::vector<ServerBlock>& serverBlocks ) const {
             std::vector<Server> servers;
+            std::map<std::pair<std::string, uint16_t>, int> socketPool;
 
             for (size_t i = 0; i < serverBlocks.size(); i++) {
-                Server server(serverBlocks[i]);
-                //TODO: don't start server that already have same socket with other server
-                server.start();
-                servers.push_back(server);
+                ServerBlock& serverBlock = serverBlocks[i];
+                std::pair<std::string, uint16_t> addressPort = std::make_pair(serverBlock.host, serverBlock.port);
+                std::map<std::pair<std::string, uint16_t>, int>::const_iterator cit = socketPool.find(addressPort);
+                if (cit == socketPool.end()) {
+                    Server server(serverBlock);
+                    server.start();
+                    servers.push_back(server);
+                    socketPool.insert(std::make_pair(addressPort, server.getSocketFD()));
+                } else {
+                    Server server(serverBlock);
+                    server.setSocketFD((*cit).second);
+                    servers.push_back(server);
+                }
             }
 
             return servers;
@@ -169,13 +189,11 @@ namespace ws {
             throw std::logic_error(formatMessage("no server host `%s` were found with `%s:%d`", hostAttribute.c_str(), host.c_str(), port));
         }
 
-        void initServersSockets(fd_set *master_read, fd_set *master_write, fd_set *master_error) const {
+        void initServersSockets(fd_set *master_read, fd_set *master_write) const {
             FD_ZERO(master_read);
             FD_ZERO(master_write);
-            FD_ZERO(master_error);
             for (size_t i = 0; i < mServers.size(); i++) {
                 FD_SET(mServers[i].getSocketFD(), master_read);
-                FD_SET(mServers[i].getSocketFD(), master_error);
             }
         }
 
