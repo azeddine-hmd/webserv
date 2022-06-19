@@ -10,7 +10,7 @@
 #include "request.hpp"
 #include "response.hpp"
 
-#define PORT 8080
+#define PORT 8081
 
 class Server {
     private:
@@ -38,10 +38,17 @@ class Server {
         Server( int port ): _haveBind(false) {
             _address = getSocketAddress(port);
             _addrlen = sizeof(_address);
-
+            int opt = 1;
             if ((_fd = socket(AF_INET, SOCK_STREAM, 0)) < 0)
             {
                 perror("In socket");
+                exit(EXIT_FAILURE);
+            }
+
+            if(setsockopt(_fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(int)) == -1)
+            {
+                close(_fd);
+                perror("In setsockopt");
                 exit(EXIT_FAILURE);
             }
 
@@ -51,7 +58,7 @@ class Server {
                 perror("In bind");
                 exit(EXIT_FAILURE);
             }
-            _haveBind = true;
+            // _haveBind = true;
 
             if (listen(_fd, MAX_LISTENERS) < 0)
             {
@@ -84,11 +91,10 @@ void closePort(int sig)
 
 int main(int argc, char const *argv[])
 {
-    long valread;
     std::vector<Request> active;
     std::vector<Server> listen_s;
 
-    //signal(SIGINT, closePort);
+    signal(SIGPIPE, SIG_IGN);
     Server s1(std::stoi(argv[1]));
     listen_s.push_back(s1.getFd());
     fd_set master_read, master_write;
@@ -102,7 +108,7 @@ int main(int argc, char const *argv[])
     {
         fd_set copy_read = master_read;
         fd_set copy_write = master_write;
-        select(1024, &copy_read, &copy_write, nullptr, &tv);
+        select(1024, &copy_read, &copy_write, nullptr, NULL);
         int i = 0;
         // std::cout << "=> "<< active.size() <<std::endl;
         while(i < active.size())
@@ -111,7 +117,20 @@ int main(int argc, char const *argv[])
             if(FD_ISSET( active[i].getFd(), &copy_read ))
             {
                 // std::cout << active.size() <<std::endl;
-                active[i].readChunk();
+                
+                try 
+                {
+                    active[i].readChunk();
+                }
+                catch (std::runtime_error& e) 
+                {
+                    std::cout << e.what() << std::endl;
+                    close(active[i].getFd());
+                    FD_CLR(active[i].getFd(), &master_read);
+                    active.erase(active.begin() + i);
+                    i--;
+                    continue;
+                }
                 if(active[i].getStatus())
                 {
                     FD_CLR(active[i].getFd(),&master_read);
@@ -131,6 +150,8 @@ int main(int argc, char const *argv[])
         }
         if (FD_ISSET(s1.getFd(),&copy_read))
         {
+
+
             int new_socket = accept(s1.getFd(), (sockaddr *)(s1.getAddress()), s1.getAddrlen());
             if(new_socket > 0)
             {

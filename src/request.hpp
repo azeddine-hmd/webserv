@@ -60,43 +60,37 @@ class Request
 			std::string key = str.substr(0, pos);
 			str.erase(0, pos + 2);
 			_Headers[key] = str;
-			// std::stringstream ss(str);
-			// std::string key;
-			// ss >> key;
-			// key.pop_back();
-			// ss >> _Headers[key];
 			return 0;
 		}
 		// parse the whole header part of a request
 		void parseRequestHeader ( void ) {
 			char buf[BUFFER_SIZE * 10];
 			int ret = read(_SockFd, buf, BUFFER_SIZE * 10);
+			if (ret <= 0) 
+                	throw std::runtime_error("error while reading");
 			_BodyBuffer = std::string(buf, ret);
 			parseFirstLine();
 			
 			while(parseParam() != -1);
+			_HeaderDone = true;
 			if(_Headers.find("Content-Length") != _Headers.end())
 			{
 				std::istringstream iss(_Headers["Content-Length"]);
 				iss >> _targetSize;
 			}
-			_HeaderDone = true;
-			if(_Headers["Method"] != "POST")
-			{
-				_RequestDone = true;
-				lseek(_SockFd, 0, SEEK_END); // ignore body if method is get or delete
-			}
 			else
 			{
-				CreateFile();
-				write(_BodyFile.fd, _BodyBuffer.c_str(), _BodyBuffer.size());
-				_bodySize = _BodyBuffer.size();
-				if(_bodySize == _targetSize)
-				{
-					_RequestDone = true;
-					std::cout << "done" << std::endl;
-					return;
-				}
+				_RequestDone = true;
+				return;
+			}
+			CreateFile();
+			write(_BodyFile.fd, _BodyBuffer.c_str(), _BodyBuffer.size());
+			_bodySize = _BodyBuffer.size();
+			if(_bodySize == _targetSize)
+			{
+				_RequestDone = true;
+				std::cout << "done" << std::endl;
+				return;
 			}
 		}
 		// get a parameter by key
@@ -136,14 +130,10 @@ class Request
 			{
 				char buf[BUFFER_SIZE];
 				int ret = read(_SockFd, buf, BUFFER_SIZE);
+				if (ret <= 0) 
+                	throw std::runtime_error("error while reading");
 				std::string buffer = std::string(buf, ret);
 				_bodySize += ret;
-				// if(ret > 0)
-				// {
-				// 	if(_BodyFile.fd == -1)
-				// 		CreateFile();
-				// 	write(_BodyFile.fd, buf, ret);
-				// }
 				if(ret > 0)
 					write(_BodyFile.fd, buf, ret);
 				if(_bodySize == _targetSize)

@@ -1,10 +1,18 @@
+
+<form action="<?php echo $_SERVER['PHP_SELF'];?>" method="post" enctype="multipart/form-data">
+    Select image to upload:
+    <input type="file" name="fileToUpload" id="fileToUpload">
+    <input type="submit" value="Upload Image" name="submit">
+</form>
+    
 <?php
-// $target_dir = "uploads/";
-// $target_file = $target_dir . basename($_FILES["fileToUpload"]["name"]);
 
-echo "hello " . $_POST["firstName"] . " " .  $_POST["lastName"] . "<br>"
+$target_dir = "uploads/";
+$target_file = $target_dir . basename($_FILES["fileToUpload"]["name"]);
+// fwrite(STDERR , $target_file . PHP_EOL);
+// echo "hello " . $_POST["firstName"] . " " .  $_POST["lastName"] . "<br>"
 
-// $uploadOk = 1;
+$uploadOk = 1;
 // $imageFileType = strtolower(pathinfo($target_file,PATHINFO_EXTENSION));
 // // Check if image file is a actual image or fake image
 // if(isset($_POST["submit"])) {
@@ -18,43 +26,45 @@ echo "hello " . $_POST["firstName"] . " " .  $_POST["lastName"] . "<br>"
 //   }
 // }
 
-// echo $uploadOk ;
+echo $uploadOk ;
 
-// // Check if file already exists
-// if (file_exists($target_file)) {
-//   echo "Sorry, file already exists.";
-//   $uploadOk = 0;
-// }
+// Check if file already exists
+if (file_exists($target_file)) {
+  echo "Sorry, file already exists.";
+  $uploadOk = 0;
+}
 
-// // Check file size
+
+// Check file size
 // if ($_FILES["fileToUpload"]["size"] > 500000) {
 //   echo "Sorry, your file is too large.";
 //   $uploadOk = 0;
 // }
 
-// // Allow certain file formats
+// Allow certain file formats
 // if($imageFileType != "jpg" && $imageFileType != "png" && $imageFileType != "jpeg"
 // && $imageFileType != "gif" ) {
 //   echo "Sorry, only JPG, JPEG, PNG & GIF files are allowed.";
 //   $uploadOk = 0;
 // }
 
-// // Check if $uploadOk is set to 0 by an error
+// Check if $uploadOk is set to 0 by an error
 
-// echo "Filename: " . $_FILES['fileToUpload']['name']."<br>";
-// echo "Type : " . $_FILES['fileToUpload']['type'] ."<br>";
-// echo "Size : " . $_FILES['fileToUpload']['size'] ."<br>";
-// echo "Temp name: " . $_FILES['fileToUpload']['tmp_name'] ."<br>";
-// echo "Error : " . $_FILES['fileToUpload']['error'] . "<br>";
+echo "Filename: " . $_FILES['fileToUpload']['name']."<br>";
+echo "Type : " . $_FILES['fileToUpload']['type'] ."<br>";
+echo "Size : " . $_FILES['fileToUpload']['size'] ."<br>";
+echo "Temp name: " . $_FILES['fileToUpload']['tmp_name'] ."<br>";
+echo "Error : " . $_FILES['fileToUpload']['error'] . "<br>";
 
-// if ($uploadOk == 0) {
-//   echo "Sorry, your file was not uploaded.";
-// // if everything is ok, try to upload file
-// } else {
-//   if (move_uploaded_file($_FILES["fileToUpload"]["tmp_name"], $target_file)) {
-//     echo "The file ". htmlspecialchars( basename( $_FILES["fileToUpload"]["name"])). " has been uploaded.";
-//   } else {
-//     echo "Sorry, there was an error uploading your file.";
-//   }
-// }
+if ($uploadOk == 0) {
+  echo "Sorry, your file was not uploaded.";
+// if everything is ok, try to upload file
+} else {
+  if (move_uploaded_file($_FILES["fileToUpload"]["tmp_name"], $target_file)) {
+    echo "The file ". htmlspecialchars( basename( $_FILES["fileToUpload"]["name"])). " has been uploaded.";
+  } else {
+    echo "Sorry, there was an error uploading your file.";
+  }
+}
+
 ?>
