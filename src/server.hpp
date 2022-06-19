@@ -89,9 +89,17 @@ namespace ws {
 
         int getSocketFileDescriptor() {
             int sfd;
+            int opt = 1;
 
             if ((sfd = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
                 perror("In socket");
+                exit(EXIT_FAILURE);
+            }
+
+            if(setsockopt(sfd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(int)) == -1)
+            {
+                close(sfd);
+                perror("In setsockopt");
                 exit(EXIT_FAILURE);
             }
 
