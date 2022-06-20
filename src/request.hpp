@@ -32,13 +32,11 @@ namespace ws {
         BodyFile                            _BodyFile;
         size_t                              _bodySize;
         size_t                              _targetSize;
-
-        //TODO: is there other way to identify host and port
-        std::string                         mHost;
-        uint16_t                            mPort;
+        std::string                         _Host;
+        uint16_t                            _Port;
 
     public:
-        Request( int fd, std::string host, uint16_t port ): mHost(host), mPort(port) {
+        Request( int fd, std::string host, uint16_t port ): _Host(host), _Port(port) {
             _SockFd = fd;
             _HeaderDone = false;
             _RequestDone = false;
@@ -164,11 +162,15 @@ namespace ws {
         }
 
         std::string getHost() const {
-            return mHost;
+            return _Host;
         }
 
         uint16_t getPort() const {
-            return mPort;
+            return _Port;
+        }
+
+        BodyFile const &getBodyFile() const {
+            return _BodyFile;
         }
 
     };

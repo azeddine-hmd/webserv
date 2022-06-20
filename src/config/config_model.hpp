@@ -24,7 +24,7 @@ namespace ws {
         std::pair<int, std::string>                         redirect;
 
         //TODO: what data cgi needs?
-        //std::string                                         cgiPath;
+        std::string                                         cgiPath;
         //std::vector<std::string>                            cgiExit;
 
     public:
@@ -76,7 +76,6 @@ namespace ws {
             ServerBlock::dataKeyValue = dataKeyValue;
         }
 
-        //TODO: return vector instead
         void setHosts() {
             std::string portString = std::to_string(port);
             for (size_t i = 0; i < serverNames.size(); i++) {

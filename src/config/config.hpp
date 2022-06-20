@@ -687,15 +687,17 @@ namespace ws {
 
         std::map<int, std::string> getErrorPages( MapKeyValue& kv ) const {
             std::map<int, std::string> errorPages;
-            errorPages.insert( getErrorPagePair(kv, "error_page_204", 204, defaults::PATH_ERROR_PAGE_204) );
+            errorPages.insert( getErrorPagePair(kv, "error_page_200", 200, defaults::PATH_ERROR_PAGE_200) );
             errorPages.insert( getErrorPagePair(kv, "error_page_400", 400, defaults::PATH_ERROR_PAGE_400) );
             errorPages.insert( getErrorPagePair(kv, "error_page_403", 403, defaults::PATH_ERROR_PAGE_403) );
             errorPages.insert( getErrorPagePair(kv, "error_page_404", 404, defaults::PATH_ERROR_PAGE_404) );
+            errorPages.insert( getErrorPagePair(kv, "error_page_405", 405, defaults::PATH_ERROR_PAGE_405) );
             errorPages.insert( getErrorPagePair(kv, "error_page_413", 413, defaults::PATH_ERROR_PAGE_413) );
             errorPages.insert( getErrorPagePair(kv, "error_page_500", 500, defaults::PATH_ERROR_PAGE_500) );
+            errorPages.insert( getErrorPagePair(kv, "error_page_501", 501, defaults::PATH_ERROR_PAGE_501) );
             errorPages.insert( getErrorPagePair(kv, "error_page_502", 502, defaults::PATH_ERROR_PAGE_502) );
-            errorPages.insert( getErrorPagePair(kv, "error_page_504", 504, defaults::PATH_ERROR_PAGE_504) );
-            errorPages.insert( getErrorPagePair(kv, "error_page_505", 505, defaults::PATH_ERROR_PAGE_505) );
+            errorPages.insert( getErrorPagePair(kv, "error_page_503", 503, defaults::PATH_ERROR_PAGE_503) );
+            errorPages.insert( getErrorPagePair(kv, "error_page_520", 520, defaults::PATH_ERROR_PAGE_520) );
             return errorPages;
         }
 

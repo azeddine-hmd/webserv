@@ -7,7 +7,6 @@
 #include <fcntl.h>
 #include <string>
 #include <arpa/inet.h>
-#include "responseBuilder.hpp"
 #include "config/config_model.hpp"
 
 namespace ws {
