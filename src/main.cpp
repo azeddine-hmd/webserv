@@ -18,11 +18,9 @@ int     main( int argc, char **argv ) {
         std::cerr << "usage: ./webserv [<config-file>]" << std::endl;
         return EXIT_FAILURE;
     }
+
     signal(SIGINT, intercept);
-    signal(SIGTERM, intercept);
-    signal(SIGSEGV, intercept);
     signal(SIGPIPE, SIG_IGN);
-    signal(SIGABRT, intercept);
 
     // create config
     ws::Config * config;

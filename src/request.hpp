@@ -116,7 +116,7 @@ namespace ws {
             return _RequestDone;
         }
 
-        int getFd() const {
+        int getSockFd() const {
             return _SockFd;
         }
 

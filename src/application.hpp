@@ -61,14 +61,14 @@ namespace ws {
                 for (size_t i = 0; i < requests.size(); i++) {
                     Request& req = requests[i];
 
-                    if ( FD_ISSET(req.getFd(), &copy_read) )
+                    if ( FD_ISSET(req.getSockFd(), &copy_read) )
                     {
                         try {
                             req.readChunk();
                         } catch (std::runtime_error& e) {
                             std::cout << e.what() << std::endl;
-                            close(req.getFd());
-                            FD_CLR(req.getFd(), &master_read);
+                            close(req.getSockFd());
+                            FD_CLR(req.getSockFd(), &master_read);
                             requests.erase(requests.begin() + i);
                             i--;
                             continue;
@@ -76,8 +76,8 @@ namespace ws {
 
                         if(req.getStatus())
                         {
-                            FD_CLR(req.getFd(), &master_read);
-                            FD_SET(req.getFd(), &master_write);
+                            FD_CLR(req.getSockFd(), &master_read);
+                            FD_SET(req.getSockFd(), &master_write);
                             ServerBlock& serverBlock = findServer(req.getHeader("Host"), req.getHost(), req.getPort()).getServerBlock();
                             responses.push_back(Response(req, serverBlock));
                             requests.erase(requests.begin() + i);
@@ -90,17 +90,26 @@ namespace ws {
                 for (size_t i = 0; i < responses.size(); i++) {
                     Response& response = responses[i];
 
-                    if ( FD_ISSET(response.getFd(), &copy_write) ) {
-                        response.send();
+                    if ( FD_ISSET(response.getSockFd(), &copy_write) ) {
+                        try {
+                            response.send();
+                        } catch (std::runtime_error& e) {
+                            std::cout << e.what() << std::endl;
+                            close(response.getSockFd());
+                            FD_CLR(response.getSockFd(), &master_write);
+                            responses.erase(responses.begin() + i);
+                            i--;
+                            continue;
+                        }
                         if (response.done()) {
-                            FD_CLR(response.getFd(), &master_write);
+                            FD_CLR(response.getSockFd(), &master_write);
                             if (response.getRequest().getHeader("Connection") == "keep-alive") {
                                 std::cout << "resetting connection" << std::endl;
                                 response.reset();
                                 requests.push_back(response.getRequest());
-                                FD_SET(response.getFd(), &master_read);
+                                FD_SET(response.getSockFd(), &master_read);
                             } else {
-                                close(response.getFd());
+                                close(response.getSockFd());
                             }
                             responses.erase(responses.begin() + i);
                             i--;
@@ -116,7 +125,6 @@ namespace ws {
                     if ( FD_ISSET(server.getSocketFD(), &copy_read)) {
                         int new_socket = accept(server.getSocketFD(), (sockaddr *)(server.getAddress()), server.getAddrlen());
                         fcntl(new_socket, F_SETFL, O_NONBLOCK); //TODO: maybe useless ?
-                        std::cout << "new_socket: " << new_socket << std::endl;
                         if ( new_socket > 0 ) {
                             std::string host = server.getServerBlock().host;
                             uint16_t    port = server.getServerBlock().port;
