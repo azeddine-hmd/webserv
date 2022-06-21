@@ -204,8 +204,10 @@ namespace ws {
 
         void sendFile( const char* path ) {
             _BodyFd = open(path, O_RDONLY);
-            if (_BodyFd < 0)
-                throw std::runtime_error(strerror(errno));
+            if (_BodyFd < 0) {
+                sendError(StatusCode::notFound);
+                return;
+            }
 
             Headers headers(StatusCode::ok);
             headers.add<3>("Content-Type", MimeTypes::getType(path), "charset=utf-8");
@@ -246,7 +248,6 @@ namespace ws {
             else {
                 std::string filePath = "www/" + paths[0];
                 sendFile(filePath.c_str());
-                sendError(StatusCode::notFound);
             }
 
 
