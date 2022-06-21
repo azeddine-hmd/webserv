@@ -22,6 +22,7 @@ namespace ws {
         bool                                                autoindex;
         std::string                                         uploadStore;
         std::pair<int, std::string>                         redirect;
+        std::string                                         index;
 
         //TODO: what data cgi needs?
         std::string                                         cgiPath;

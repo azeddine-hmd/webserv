@@ -75,7 +75,6 @@ namespace ws {
             std::vector<ServerBlock> serversBlocks;
 
             std::vector<std::string> serversBlocksData = getServersBlocksData(data);
-            checkingEmptyBlock(serversBlocksData);
 
             for (size_t i = 0; i < serversBlocksData.size(); i++) {
                 ServerBlock serverBlock;
@@ -85,14 +84,6 @@ namespace ws {
                 serverBlock.setDataKeyValue(dataKeyValue);
 
                 std::vector<std::pair<std::string, std::string> > locationBlockData = getLocationBlocksData(serversBlocksData[i]);
-
-                {
-                    std::vector<std::string> locationBlocksDataOnly;
-                    for (size_t i = 0; i < locationBlockData.size(); i++) {
-                        locationBlocksDataOnly.push_back(locationBlockData[i].second);
-                    }
-                    checkingEmptyBlock(locationBlocksDataOnly);
-                }
 
                 for (size_t j = 0; j < locationBlockData.size(); j++) {
                     LocationBlock locationBlock;
@@ -297,19 +288,6 @@ namespace ws {
             }
 
             return serversBlocksData;
-        }
-
-        void checkingEmptyBlock(std::vector<std::string>& blockData) const {
-            for (LineIter line = blockData.begin(); line != blockData.end(); line++) {
-                std::string const& blockLine = *line;
-                bool isEmpty = true;
-                for (size_t i = 0; i < blockLine.size(); i++) {
-                    if (blockLine[i] != ' ' && blockLine[i] != '\t' && blockLine[i] != '\n')
-                        isEmpty = false;
-                }
-                if (isEmpty)
-                    throw ParsingException(formatMessage("found empty block"));
-            }
         }
 
         int64_t findLastIndexOfBlock( std::string const& data, size_t start ) const {
@@ -610,6 +588,7 @@ namespace ws {
             lb.root = getRoot(kv);
             lb.uploadStore = getUploadStore(kv);
             lb.redirect = getRedirection(kv);
+            lb.index = getIndexfile(kv);
         }
 
         MapKeyValueIter getKeyIter(
@@ -680,6 +659,9 @@ namespace ws {
                 errorPair = std::make_pair(errorNbr, defaultPath);
             } else {
                 errorPair = std::make_pair(errorNbr, (*iter).second.front());
+                if (access((*iter).second.front().c_str(), F_OK) != 0) {
+                    throw ParsingException(formatMessage(" error_page_%d: bad path `%s`", errorNbr, (*iter).second.front().c_str()));
+                }
             }
 
             return errorPair;
@@ -709,6 +691,9 @@ namespace ws {
                 root = defaults::ROOT;
             } else {
                 root = (*iter).second.front();
+                if (access((*iter).second.front().c_str(), F_OK) != 0) {
+                    throw ParsingException(formatMessage("root: bad path `%s`", (*iter).second.front().c_str()));
+                }
             }
 
             return root;
@@ -770,6 +755,9 @@ namespace ws {
             }
 
             std::string const& uploadStore = (*iter).second.front();
+            if (access((*iter).second.front().c_str(), F_OK) != 0) {
+                throw ParsingException(formatMessage("uplaod_store: bad path `%s`", (*iter).second.front().c_str()));
+            }
 
             return uploadStore;
         }
