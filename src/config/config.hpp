@@ -568,12 +568,7 @@ namespace ws {
             sb.port = hostAndPort.second;
             sb.serverNames = getServerNames(kv);
             sb.errorPages = getErrorPages(kv);
-            sb.root = getRoot(kv);
             sb.maxBodySize = getMaxBodySize(kv);
-            sb.allowedMethods = getAllowedMethods(kv);
-            sb.uploadStore = getUploadStore(kv);
-            sb.indexFile = getIndexfile(kv);
-            sb.autoindex = getAutoindex(kv);
 
             for (size_t i = 0; i < sb.locations.size(); i++) {
                 processLocationBlock(sb.locations[i]);
@@ -586,7 +581,6 @@ namespace ws {
             lb.allowedMethods = getAllowedMethods(kv);
             lb.autoindex = getAutoindex(kv);
             lb.root = getRoot(kv);
-            lb.uploadStore = getUploadStore(kv);
             lb.redirect = getRedirection(kv);
             lb.index = getIndexfile(kv);
         }
@@ -719,26 +713,26 @@ namespace ws {
             return maxBodySize;
         }
 
-        std::vector<HttpMethods> getAllowedMethods( MapKeyValue& kv ) const {
-            MapKeyValueIter iter = getKeyIter(kv, "allow", defaults::HTTP_METHODS_SIZE);
+        std::vector<std::string> getAllowedMethods( MapKeyValue& kv ) const {
+            MapKeyValueIter iter = getKeyIter(kv, "allow", 3);
 
             if (iter == kv.end()) {
-                std::vector<HttpMethods> allowedMethods;
-                for (size_t i = 0; i < defaults::ALLOWED_METHODS_SIZE; i++) {
+                std::vector<std::string> allowedMethods;
+                for (size_t i = 0; i < sizeof(defaults::ALLOWED_METHODS)/sizeof(*defaults::ALLOWED_METHODS); i++) {
                     allowedMethods.push_back(defaults::ALLOWED_METHODS[i]);
                 }
                 return allowedMethods;
             }
 
-            std::vector<HttpMethods> allowedMethods;
+            std::vector<std::string> allowedMethods;
             std::vector<std::string> const& allowed = (*iter).second;
             for (size_t i = 0; i < allowed.size(); i++) {
                 if (allowed[i] == "GET") {
-                    allowedMethods.push_back(GET);
+                    allowedMethods.push_back("GET");
                 } else if (allowed[i] == "POST") {
-                    allowedMethods.push_back(POST);
+                    allowedMethods.push_back("POST");
                 } else if (allowed[i] == "DELETE") {
-                    allowedMethods.push_back(DELETE);
+                    allowedMethods.push_back("DELETE");
                 } else {
                     throw ParsingException(formatMessage("Unknown http method `%s`", allowed[i].c_str()));
                 }
@@ -747,20 +741,20 @@ namespace ws {
             return allowedMethods;
         }
 
-        std::string getUploadStore( MapKeyValue& kv ) const {
-            MapKeyValueIter iter = getKeyIter(kv, "upload_store", 1);
-
-            if (iter == kv.end()) {
-                return defaults::UPLOAD_STORE;
-            }
-
-            std::string const& uploadStore = (*iter).second.front();
-            if (access((*iter).second.front().c_str(), F_OK) != 0) {
-                throw ParsingException(formatMessage("uplaod_store: bad path `%s`", (*iter).second.front().c_str()));
-            }
-
-            return uploadStore;
-        }
+//        std::string getUploadStore( MapKeyValue& kv ) const {
+//            MapKeyValueIter iter = getKeyIter(kv, "upload_store", 1);
+//
+//            if (iter == kv.end()) {
+//                return defaults::UPLOAD_STORE;
+//            }
+//
+//            std::string const& uploadStore = (*iter).second.front();
+//            if (access((*iter).second.front().c_str(), F_OK) != 0) {
+//                throw ParsingException(formatMessage("uplaod_store: bad path `%s`", (*iter).second.front().c_str()));
+//            }
+//
+//            return uploadStore;
+//        }
 
         std::string getIndexfile( MapKeyValue& kv ) const {
             MapKeyValueIter iter = getKeyIter(kv, "index", 1);

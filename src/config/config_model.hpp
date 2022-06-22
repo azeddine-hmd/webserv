@@ -6,26 +6,21 @@
 
 namespace ws {
 
-    typedef enum HttpMethods {
-        GET,
-        POST,
-        DELETE
-    } HttpMethods;
-
     class LocationBlock {
         std::map <std::string, std::vector<std::string> >   dataKeyValue;
 
     public:
         std::string                                         path;
+
         std::string                                         root;
-        std::vector<HttpMethods>                            allowedMethods;
+        std::vector<std::string>                            allowedMethods;
         bool                                                autoindex;
-        std::string                                         uploadStore;
-        std::pair<int, std::string>                         redirect;
         std::string                                         index;
 
+        std::pair<int, std::string>                         redirect;
+
         //TODO: what data cgi needs?
-        std::string                                         cgiPath;
+        //std::string                                         cgiPath;
         //std::vector<std::string>                            cgiExit;
 
     public:
@@ -36,37 +31,21 @@ namespace ws {
         void setDataKeyValue(std::map<std::string, std::vector<std::string> > const& dataKeyValue) {
             LocationBlock::dataKeyValue = dataKeyValue;
         }
-
-        LocationBlock& operator=( LocationBlock const& rhs ) {
-            if (this != &rhs) {
-                path = rhs.path;
-                root = rhs.root;
-                allowedMethods = rhs.allowedMethods;
-                autoindex = rhs.autoindex;
-                uploadStore = rhs.uploadStore;
-                redirect = rhs.redirect;
-            }
-
-            return *this;
-        }
     };
 
     class ServerBlock {
         std::map <std::string, std::vector<std::string> >   dataKeyValue;
 
     public:
-        std::vector<LocationBlock>                          locations;
         std::string                                         host;
         uint16_t                                            port;
-        std::vector<std::string>                            serverNames;
         std::vector<std::string>                            hosts;
+
+        std::vector<std::string>                            serverNames;
         std::map<int, std::string>                          errorPages;
-        std::string                                         root;
-        std::string                                         uploadStore;
         size_t                                              maxBodySize;
-        std::vector<HttpMethods>                            allowedMethods;
-        std::string                                         indexFile;
-        bool                                                autoindex;
+
+        std::vector<LocationBlock>                          locations;
 
     public:
         std::map<std::string, std::vector<std::string> > const& getDataKeyValue() const {
@@ -82,24 +61,6 @@ namespace ws {
             for (size_t i = 0; i < serverNames.size(); i++) {
                 hosts.push_back(serverNames[i] + ":" + portString);
             }
-        }
-
-        ServerBlock& operator=( ServerBlock const& rhs ) {
-            if (this != &rhs) {
-                locations = rhs.locations;
-                host = rhs.host;
-                port = rhs.port;
-                serverNames = rhs.serverNames;
-                errorPages = rhs.errorPages;
-                root = rhs.root;
-                uploadStore = rhs.uploadStore;
-                maxBodySize = rhs.maxBodySize;
-                allowedMethods = rhs.allowedMethods;
-                indexFile = rhs.indexFile;
-                autoindex = rhs.autoindex;
-            }
-
-            return *this;
         }
     };
 

@@ -24,20 +24,16 @@ namespace ws {
         char const* PATH_ERROR_PAGE_503 = "error_pages/503.html";
         char const* PATH_ERROR_PAGE_520 = "error_pages/520.html";
 
-        size_t HTTP_METHODS_SIZE = 3;
-
-        HttpMethods ALLOWED_METHODS[] = {
-                GET,
-                POST,
+        std::string ALLOWED_METHODS[] = {
+                "GET",
+                "POST"
         };
-        size_t ALLOWED_METHODS_SIZE = 3; // ignore it
-
 
         char const* INDEX = "index.html";
 
         char const* ROOT = "www";
 
-        char const* UPLOAD_STORE = "www/uploads";
+        char const* UPLOAD_STORE = "uploads";
 
         size_t UNLIMITED_BODY_SIZE = 0;
 
