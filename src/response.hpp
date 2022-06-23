@@ -170,6 +170,8 @@ namespace ws {
             _BodyFd = open(FilePath.c_str(), O_RDONLY);
             _Headers += "HTTP/1.1 " + Error + "\r\n";
             _Headers += "Date: " + GetTime();
+            // if (ErrorCode == 405)
+                // The Allow header lists the set of methods supported by a resource.
             _Headers += "Content-Type: text/html;charset=UTF-8\r\n";
             _Headers += "Content-Length: " + To_String(getContentLength(_BodyFd)) + "\r\n";
             _Headers += "Connection: close\r\n\r\n";
@@ -230,13 +232,6 @@ namespace ws {
             if (fd > 0)
             {
                 SendFile(Path);
-                // _Headers += "HTTP/1.1 200 OK\r\nDate: " + GetTime();
-                // _Headers += "Content-Type: text/html;charset=UTF-8\r\n";
-                // _Headers += "Content-Length: " + To_String(getContentLength(fd)) + "\r\n";
-                // _Headers += "Connection: " + _req.getHeader("Connection") + "\r\n\r\n";
-                // write(_req.getSockFd(), _Headers.c_str(), _Headers.length());
-                // _BodyFd = fd;
-                // _HeadersSent = true;
                 return (true);
             }
             return (false);
@@ -306,6 +301,8 @@ namespace ws {
         void    SendWithPost() {
             _Headers += "HTTP/1.1 201 CREATED\r\nDate: " + GetTime();
             _Headers += "Connection: " + _req.getHeader("Connection") + "\r\n\r\n";
+            // _Headers += "Connection: " + _req.getHeader("Connection") + "\r\n";
+            // _Headers += "Content-length: 0\r\n\r\n";
             if (write(_req.getSockFd(), _Headers.c_str(), _Headers.length()) < 0)
                 throw std::runtime_error("error while writing to client");
             _HeadersSent = true;
@@ -327,12 +324,13 @@ namespace ws {
 
         std::string     GetFilePath(std::string Path) {
             std::string Root = _Location.root;
+            std::string NewPath = Path.substr(Path.find(_Location.path) + _Location.path.length()
+                                        , Path.length());
             if (Root[Root.length() - 1] != '/')
                 Root += "/";
-            if (Path[Path.length() - 1] == '/')
-                Path.pop_back();
-            return Root + Path.substr(Path.find(_Location.path) + _Location.path.length()
-                                        , Path.length());
+            if (NewPath[0] == '/')
+                NewPath.erase(0,1);
+            return Root + NewPath;
         }
 
         void    sendHeaders() {
@@ -348,7 +346,10 @@ namespace ws {
                     if (Method == "GET")
                         SendWithGet(FilePath);
                     else if (Method == "POST")
+                    {
+                        std::cout << "post request called" << std::endl;
                         SendWithPost();
+                    }
                     else if (Method == "DELETE")
                         SendWithDelete(FilePath);
                 }
