@@ -2,6 +2,8 @@
 *.exe
 *.out
 *.app
+www/*
+.gitignore
 client
 server
 tester

@@ -7,11 +7,13 @@
 #include <poll.h>
 #include <sys/stat.h>
 #include <sys/wait.h>
+#include<dirent.h>
 #include "mimeTypes.hpp"
 #include "request.hpp"
 #include "config/config_model.hpp"
 #include "cgi.hpp"
 #include "headers.hpp"
+#include <algorithm>
 
 
 namespace ws {
@@ -19,24 +21,28 @@ namespace ws {
 
     class Response {
         typedef std::pair<std::string, std::string>         pair;
-        typedef std::map<int, std::string>::const_iterator  ErrPgIter;
 
-        std::string     _Body;
-        std::string     _Date;
-
-        Request        _req;
-        bool           _HeadersSent;
+        std::string     _Headers;
+        Request         _req;
+        ServerBlock*    _ServerBlock;
+        LocationBlock   _Location;
+        bool            _HeadersSent;
         int             _BodyFd;
         bool            _Done;
-        ServerBlock*    _ServerBlock;
+        bool            _isErr;
+
 
         Response();
     public:
 
         Response( Request& request, ServerBlock& serverBlock ): _req(request), _ServerBlock(&serverBlock) {
+            _Headers = std::string();
+            // _Location();
             _HeadersSent = false;
-            _BodyFd = -1;
             _Done = false;
+            _BodyFd = -1;
+            _isErr = false;
+
         }
 
     private:
@@ -46,117 +52,33 @@ namespace ws {
             https://www.ibm.com/docs/en/cics-ts/5.2?topic=protocol-http-responses
         */
 
-//        std::string setDate(void) {
-//            char buffer[30];
-//            struct timeval tv;
-//
-//            gettimeofday(&tv, NULL);
-//            strftime(buffer, 29, "%a, %d %b %Y %T %Z", gmtime(&tv.tv_sec));
-//            return (std::string(buffer));
-//        }
+       int IsFile(std::string &Path) {
+           struct stat status;
+           if (stat(Path.c_str(), &status) == 0) {
+               if (status.st_mode & S_IFDIR) // Directory
+                   return 0;
+               else if (status.st_mode & S_IFREG) // Regular File
+                   return 1;
+               else
+                   return 0;
+           } else
+               return 0;
+       }
 
-//        int IsFile(std::string &Path) {
-//            struct stat status;
-//            if (stat(Path.c_str(), &status) == 0) {
-//                if (status.st_mode & S_IFDIR)
-//                    return 0;
-//                else if (status.st_mode & S_IFREG)
-//                    return 1;
-//                else
-//                    return 0;
-//            } else
-//                return 0;
-//        }
+        int To_Int(std::string stringValue)
+        {
+            std::stringstream intValue(stringValue);
+            int number = 0;
+            intValue >> number;
+            return number;
+        }
 
-//        void    BuildError( std::string  Error) {
-//            std::string	    StatusCode = Error.substr(0, 3);
-//            std::string     FilePath =  "resources/error_pages/" + StatusCode + ".html";
-//            int             fd = open(FilePath.c_str(), O_RDONLY);
-//            struct stat     FileStatus;
-//
-//            std::cout << "build Error: " << FilePath << std::endl;
-//            fstat(fd, &FileStatus);
-//            _Headers += "HTTP/1.1 " + Error + "\r\n" + _Date;
-//            _Headers += "Content-Type: text/html\r\n";
-//            _Headers += "Content-Length: " + ToString(FileStatus.st_size) + "\r\n";
-//            _Headers += "Connection: closed\r\n\r\n";
-//
-//            write(_Fd, _Headers.c_str(), _Headers.length());
-//            char buffer[1024] = "";
-//            while(read(fd, buffer, 1024) > 0)
-//                write(_Fd, buffer, 1024);
-//            write(_Fd, "\r\n\r\n", 4);
-//            close(fd);
-//        }
+        std::string     GetTime( void ) {
+            time_t rawtime;
 
-//        void Build(void) {
-//            if (_req.getHeader("Path").find(".php") != std::string::npos
-//                || _req.getHeader("Path").find(".py") != std::string::npos) {
-//                std::cout << "in cgi" << std::endl;
-//                pair status = _Cgi.execute(); // return pair(string status code, string status msg)
-//                //cgi can eather return content or status codes (400 || 500 || 301 || 302)
-//                // should build Error
-//                // else if (redirection for later)
-//                _Headers += status.second + _Date;
-//                // _Headers += "Content-Length:" + this->ToString(status.first.length()) + "\r\n";
-//                write(_Fd, _Headers.c_str(), _Headers.length());
-//                write(_Fd, status.first.c_str(), status.first.length());
-//                return;
-//            } else if (_req.getHeader("Method").length()) {
-//                std::string Method = _req.getHeader("Method");
-//                std::string FilePath = "www" + _req.getHeader("Path");
-//
-//                if (Method == "GET") {
-//                    std::cout << "inside GET" << std::endl;
-//                    struct stat FileStatus;     //https://linux.die.net/man/2/stat
-//                    int fd;
-//
-//                    if (stat(FilePath.c_str(), &FileStatus) < 0) {
-//                        std::cout << "File Protection | Errno: " << errno << std::endl;
-//                        if (errno ==
-//                            EACCES)    //Search permission is denied for one of the directories in the path prefix of path
-//                            BuildError("403 Forbidden");
-//                        else if (errno == ENOENT)    //A component of path does not exist, or path is an empty string.
-//                            BuildError("404 Not Found");
-//                    } else {
-//                        const char *Type = MimeTypes::getType(FilePath.c_str());
-//                        _Headers += "HTTP/1.1 200 OK\r\n" + _Date;
-//                        if (Type == NULL)
-//                            _Headers += "Content-Type: text/plain\r\n";
-//                        else
-//                            _Headers += "Content-Type: " + ToString(Type) + "\r\n";
-//                        _Headers += "Content-Length: " + ToString(FileStatus.st_size) + "\r\n";
-//                        _Headers += "Connection: " + _req.getHeader("Connection") + "\r\n\r\n";
-//
-//                        fd = open(FilePath.c_str(), O_RDONLY);
-//                        write(_Fd, _Headers.c_str(), _Headers.length());
-//                        char buffer[1024] = "";
-//                        while (read(fd, buffer, 1024) > 0)
-//                            write(_Fd, buffer, 1024);
-//                        write(_Fd, "\r\n\r\n", 4);
-//                        close(fd);
-//                    }
-//                    //To Do: Handle autoIndex
-//                } else if (Method == "POST") {
-//                    _Headers += "HTTP/1.1 201 CREATED\r\n" + _Date;
-//                    _Headers += "Connection: " + _req.getHeader("Connection") + "\r\n\r\n";
-//                    write(_Fd, _Headers.c_str(), _Headers.length());
-//                } else if (Method == "DELETE") {  //https://developer.mozilla.org/en-US/docs/Web/HTTP/Methods/DELETE
-//
-//                    if (IsFile(FilePath)) {
-//                        if (remove(FilePath.c_str()) == 0) {
-//                            _Headers += "HTTP/1.1 204 No Content\r\n" + _Date;
-//                            _Headers += "Connection: " + _req.getHeader("Connection") + "\r\n\r\n";
-//                            write(_Fd, _Headers.c_str(), _Headers.length());
-//                        } else
-//                            BuildError("403 Forbidden");
-//                    } else
-//                        BuildError("404 Not Found");
-//                }
-//            }
-//            // else (method not allowed)
-//
-//        }
+	        time(&rawtime);
+            return ctime(&rawtime);
+        }
 
         size_t getContentLength(int fd) {
             size_t length;
@@ -168,61 +90,19 @@ namespace ws {
         }
 
         template<class T>
-        std::string ToString(T n) {
+        std::string To_String(T n) {
             std::ostringstream convert;
             convert << n;
             return (convert.str());
         }
 
-        int  getErrorPageFd( char const* path ) {
-            int fd;
+        // int  getErrorPageFd(std::string path ) {
+        //     int fd;
 
-            fd = open(path, O_RDONLY);
-            if (fd < 0)
-                std::cout << "open: " << strerror(errno) << std::endl;
-
-            return fd;
-        }
-
-        void sendError(int error) {
-            char const* errorPagePath = _ServerBlock->errorPages.find(error)->second.c_str();
-            _BodyFd = getErrorPageFd(errorPagePath);
-
-            Headers headers(error);
-            headers.add<3>("Content-Type", MimeTypes::getType(errorPagePath), "charset=utf-8");
-            if (_req.getHeader("Connection") == "keep-alive")
-                headers.add("Connection", "Keep-Alive");
-            headers.add("Content-Length", std::to_string(getContentLength(_BodyFd)));
-            headers.addBodySeparator();
-
-            if (write(_req.getSockFd(), headers.content().c_str(), headers.content().size()) < 0)
-                throw std::runtime_error("error while writing to client");
-
-            std::cout << "[Response Headers]" << std::endl;
-            std::cout << headers.content() << std::endl;
-        }
-
-        void sendFile( const char* path ) {
-            _BodyFd = open(path, O_RDONLY);
-            if (_BodyFd < 0) {
-                sendError(StatusCode::notFound);
-                return;
-            }
-
-            Headers headers(StatusCode::ok);
-            headers.add<3>("Content-Type", MimeTypes::getType(path), "charset=utf-8");
-            if (_req.getHeader("Connection") == "keep-alive")
-                headers.add("Connection", "keep-alive");
-            headers.add("Content-Length", std::to_string(getContentLength(_BodyFd)));
-            headers.addBodySeparator();
-
-            if (write(_req.getSockFd(), headers.content().c_str(), headers.content().size()) < 0)
-                throw std::runtime_error("error while writing to client");
-
-            std::cout << "[Response Headers]" << std::endl;
-            std::cout << headers.content() << std::endl;
-        }
-
+        //     if (fd = open(path.c_str(), O_RDONLY) < 0);
+        //         std::cout << "open: " << strerror(errno) << std::endl;
+        //     return fd;
+        // }
 
         void sendBody() {
             char buffer[1024];
@@ -236,22 +116,247 @@ namespace ws {
             }
             if (write(_req.getSockFd(), buffer, readRet) < 0)
                 throw std::runtime_error("error while writing to client");
+            // write(_req.getSockFd(), "\r\n\r\n", 4);
         }
 
-        void sendHeaders() {
-
-            std::string path = _req.getHeader("Path");
-            std::vector<std::string> paths = split(path, "/");
-
-            if (paths.empty())
-                sendFile("www/index.html");
-            else {
-                std::string filePath = "www/" + paths[0];
-                sendFile(filePath.c_str());
+        int FindLocation( std::string Location ) {
+            for (int i = 0 ; i< _ServerBlock->locations.size(); i++)
+            {
+                std::cout << "config: "<< _ServerBlock->locations[i].path << " | ";
+                std::cout << "loc: " << Location << std::endl;
+                if (_ServerBlock->locations[i].path == Location)
+                    return i;
             }
+            return -1;
+        }
+
+        bool   checkRootLocation() {
+            int found = FindLocation("/");
+            if (found != -1)
+            {
+                std::cout << "found root location" << std::endl;
+                _Location = _ServerBlock->locations[found];
+                return true;
+            }
+            return false;
+        }
+
+        bool    ExtractLocation( std::string Path )
+        {
+            std::vector<std::string> Locations = split(Path, "/");
+
+            if (Locations.size() > 0)
+            {
+                std::string ToFind = "/" + Locations[0];
+                for(int i = 0; i < Locations.size(); i++)
+                {
+                    int found = FindLocation(ToFind);
+                    if (found != -1)
+                    {
+                        _Location = _ServerBlock->locations[found];
+                        return (true);
+                    }
+                    if (i < Locations.size() - 1)
+                        ToFind += "/" + Locations[i + 1];
+                }
+            }
+            return (checkRootLocation());
+        }
+
+       void    SendError( std::string Error) {
+            int         ErrorCode = To_Int(Error.substr(0, 3));
+            std::string FilePath =  _ServerBlock->errorPages.find(ErrorCode)->second;
+
+            _BodyFd = open(FilePath.c_str(), O_RDONLY);
+            _Headers += "HTTP/1.1 " + Error + "\r\n";
+            _Headers += "Date: " + GetTime();
+            _Headers += "Content-Type: text/html;charset=UTF-8\r\n";
+            _Headers += "Content-Length: " + To_String(getContentLength(_BodyFd)) + "\r\n";
+            _Headers += "Connection: close\r\n\r\n";
 
 
+            if (write(_req.getSockFd(), _Headers.c_str(), _Headers.length()) < 0)
+                throw std::runtime_error("error while writing to client");
             _HeadersSent = true;
+       }
+
+// auto index
+        std::string getParent(std::string location)
+        {
+            std::size_t found = location.find_last_of("/\\");
+            if(found == 0)
+                return "/";
+            else
+                return location.substr(0,found);
+        }
+
+        std::string makeRow(std::string location, std::string text)
+        {
+            return std::string("<tr><td><a href=") + location + ">" + text + std::string("</a></tr></td>");
+        }
+
+        std::string generateAutoIndex(std::string location, std::string root)
+        {
+            dirent *d;
+            DIR *dr;
+            std::string buffer = std::string("<html><head><title>Index of ") + location + std::string("</title></head><body><h1>Index of ");
+            buffer += location + std::string("</h1><table>");
+            dr = opendir(root.c_str());
+            if (errno == EACCES)
+                return ("403");
+            else if(dr!=NULL)
+            {
+                buffer += makeRow(location,".");
+                for(d=readdir(dr); d!=NULL; d=readdir(dr))
+                {
+                    if(std::string(d->d_name) == "..")
+                        buffer += makeRow(getParent(location),"..");
+                    else if(std::string(d->d_name) != ".")
+                        buffer += makeRow(d->d_name,d->d_name);
+                }
+                closedir(dr);
+            }
+            else
+                std::cout<<"\nError Occurred!" << std::endl;
+            buffer += "</table></body></html>";
+            return buffer;
+        }
+
+        bool    isIndexFile(std::string Path) {
+            if (Path[Path.length() - 1] != '/')
+                Path += "/";
+            Path += _Location.index;
+            int fd = open(Path.c_str(), O_RDONLY);
+            if (fd > 0)
+            {
+                SendFile(Path);
+                // _Headers += "HTTP/1.1 200 OK\r\nDate: " + GetTime();
+                // _Headers += "Content-Type: text/html;charset=UTF-8\r\n";
+                // _Headers += "Content-Length: " + To_String(getContentLength(fd)) + "\r\n";
+                // _Headers += "Connection: " + _req.getHeader("Connection") + "\r\n\r\n";
+                // write(_req.getSockFd(), _Headers.c_str(), _Headers.length());
+                // _BodyFd = fd;
+                // _HeadersSent = true;
+                return (true);
+            }
+            return (false);
+        }
+
+        void SendFile(std::string FilePath) {
+            int fd = open(FilePath.c_str(), O_RDONLY);
+            if (fd < 0)
+                throw std::runtime_error("Error Opening a File");
+            _BodyFd = fd;
+            const char *Type = MimeTypes::getType(FilePath.c_str());
+            _Headers += "HTTP/1.1 200 OK\r\nDate: " + GetTime();
+            if (Type == NULL)
+                _Headers += "Content-Type: text/plain\r\n";
+            else
+                _Headers += "Content-Type: " + To_String(Type) + "\r\n";
+            _Headers += "Content-Length: " + To_String(getContentLength(fd)) + "\r\n";
+            _Headers += "Connection: " + _req.getHeader("Connection") + "\r\n\r\n";
+            if (write(_req.getSockFd(), _Headers.c_str(), _Headers.length()) < 0)
+                throw std::runtime_error("error while writing to client");
+            _HeadersSent = true;
+        }
+
+        void    sendAutoIndex(std::string FilePath) {
+            std::cout << "auto index called" << std::endl;
+            std::string buffer = generateAutoIndex(_req.getHeader("Path"), FilePath);
+            if (buffer == "403")
+                SendError("403 Forbidden");
+            else {
+                _Headers += "HTTP/1.1 200 OK\r\nDate: " + GetTime();
+                _Headers += "Content-Type: text/html;charset=UTF-8\r\n";
+                _Headers += "Content-Length: " + To_String(buffer.length()) + "\r\n\r\n";
+                _Headers += buffer + "\r\n\r\n";
+                write(_req.getSockFd(), _Headers.c_str(), _Headers.length());
+                _HeadersSent = true;
+            }
+        }
+
+        void    CheckPathErrors() {
+            std::cout << "Path Error | Errno: " << strerror(errno) << std::endl;
+            if (errno == EACCES)    //Search permission is denied for one of the directories in the path prefix of path
+                SendError("403 Forbidden");
+            else if (errno == ENOENT) //A component of path does not exist, or path is an empty string.
+                SendError("404 Not Found");
+        }
+
+        void    SendWithGet(std::string FilePath) {
+
+            struct stat FileStatus;     //https://linux.die.net/man/2/stat
+            if (stat(FilePath.c_str(), &FileStatus) < 0) //there is a Path Error
+                CheckPathErrors();
+            else if (S_ISDIR(FileStatus.st_mode)) // is Directory == autoindex
+            {
+                if (isIndexFile(FilePath) == false)
+                {
+                    if (_Location.autoindex == true) { //sendAutoindex
+                        sendAutoIndex(FilePath);
+                    }
+                    else
+                        SendError("404 Not Found");
+                }
+            }
+            else //is File
+                SendFile(FilePath);
+        }
+
+        void    SendWithPost() {
+            _Headers += "HTTP/1.1 201 CREATED\r\nDate: " + GetTime();
+            _Headers += "Connection: " + _req.getHeader("Connection") + "\r\n\r\n";
+            if (write(_req.getSockFd(), _Headers.c_str(), _Headers.length()) < 0)
+                throw std::runtime_error("error while writing to client");
+            _HeadersSent = true;
+        }
+
+        void    SendWithDelete(std::string FilePath) {
+            if (IsFile(FilePath)) {
+                if (remove(FilePath.c_str()) == 0) {
+                    _Headers += "HTTP/1.1 204 No Content\r\nDate: " + GetTime();
+                    _Headers += "Connection: " + _req.getHeader("Connection") + "\r\n\r\n";                
+                    if (write(_req.getSockFd(), _Headers.c_str(), _Headers.length()) < 0)
+                        throw std::runtime_error("error while writing to client");
+                    _HeadersSent = true;                  
+                } else
+                    SendError("403 Forbidden");
+            } else
+                SendError("404 Not Found");
+        }
+
+        std::string     GetFilePath(std::string Path) {
+            std::string Root = _Location.root;
+            if (Root[Root.length() - 1] != '/')
+                Root += "/";
+            if (Path[Path.length() - 1] == '/')
+                Path.pop_back();
+            return Root + Path.substr(Path.find(_Location.path) + _Location.path.length()
+                                        , Path.length());
+        }
+
+        void    sendHeaders() {
+            std::string Method = _req.getHeader("Method");
+            std::string Path = _req.getHeader("Path");
+
+            if (ExtractLocation(Path)) {
+                if (std::find(_Location.allowedMethods.begin(),_Location.allowedMethods.end(),
+                        Method) != _Location.allowedMethods.end())
+                {
+                    std::string FilePath = GetFilePath(Path);
+                    std::cout << "-------- built path " << FilePath << std::endl;
+                    if (Method == "GET")
+                        SendWithGet(FilePath);
+                    else if (Method == "POST")
+                        SendWithPost();
+                    else if (Method == "DELETE")
+                        SendWithDelete(FilePath);
+                }
+                else
+                    SendError("405 Method Not Allowed");
+            }
+            else
+                SendError("404 Not Found");
         }
 
     public:
@@ -263,9 +368,12 @@ namespace ws {
         void send() {
             if (!_HeadersSent) {
                 sendHeaders();
-            } else {
+            }
+            else if (_BodyFd > -1) {
                 sendBody();
             }
+            else
+                _Done = true;
         }
 
         /*

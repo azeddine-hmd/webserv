@@ -1,9 +1,9 @@
 NAME = server
 
-CC = c++
+CC = clang++
 
 DEBUG =  -Wno-unused-variable -Wno-unused-parameter -Wno-unused-private-field -g3 #-fsanitize=address
-FLAGS = -Wall -Werror -Wextra $(DEBUG) #-std=c++98
+FLAGS = #-Wall -Werror -Wextra $(DEBUG) #-std=c++98
 
 SRC =	src/main.cpp \
 		src/mimeTypes.cpp \
