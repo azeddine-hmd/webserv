@@ -171,7 +171,7 @@ namespace ws {
             for (size_t i = 0; i < mServers.size(); i++) {
                 Server& server = mServers[i];
                 for (size_t j = 0; j < server.getServerBlock().hosts.size(); j++) {
-                    std::string& serverHost = server.getServerBlock().hosts[i];
+                    std::string& serverHost = server.getServerBlock().hosts[j];
                     if (serverHost == hostAttribute) {
                         return server;
                     }

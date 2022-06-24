@@ -741,21 +741,6 @@ namespace ws {
             return allowedMethods;
         }
 
-//        std::string getUploadStore( MapKeyValue& kv ) const {
-//            MapKeyValueIter iter = getKeyIter(kv, "upload_store", 1);
-//
-//            if (iter == kv.end()) {
-//                return defaults::UPLOAD_STORE;
-//            }
-//
-//            std::string const& uploadStore = (*iter).second.front();
-//            if (access((*iter).second.front().c_str(), F_OK) != 0) {
-//                throw ParsingException(formatMessage("uplaod_store: bad path `%s`", (*iter).second.front().c_str()));
-//            }
-//
-//            return uploadStore;
-//        }
-
         std::string getIndexfile( MapKeyValue& kv ) const {
             MapKeyValueIter iter = getKeyIter(kv, "index", 1);
 
