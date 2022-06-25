@@ -33,7 +33,7 @@ namespace ws {
 
         char const* ROOT = "www";
 
-        char const* UPLOAD_STORE = "uploads";
+        char const* UPLOAD_STORE = "www/uploads/";
 
         size_t UNLIMITED_BODY_SIZE = 0;
 

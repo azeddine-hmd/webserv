@@ -93,7 +93,7 @@ namespace ws {
                     if ( FD_ISSET(response.getSockFd(), &copy_write) ) {
                         try {
                             response.send();
-                        } catch (std::runtime_error& e) {
+                        } catch (std::exception& e) {
                             std::cout << e.what() << std::endl;
                             close(response.getSockFd());
                             FD_CLR(response.getSockFd(), &master_write);

@@ -121,9 +121,9 @@ namespace ws {
         }
 
         void CreateFile() {
-            // int random = (int) time(nullptr);
-            // std::string n = std::string("USER_") + std::to_string(random);
-            std::string n = "www/uploads/upload_file"; 
+            int random = (int) time(nullptr);
+            std::string n = std::string("/tmp/USER_") + std::to_string(random);
+            // std::string n = "www/uploads/upload_file"; 
             _BodyFile.fd = open(n.c_str(), O_CREAT | O_WRONLY, 0644);
             _BodyFile.name = n;
         }
