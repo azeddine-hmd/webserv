@@ -583,6 +583,14 @@ namespace ws {
             lb.root = getRoot(kv);
             lb.redirect = getRedirection(kv);
             lb.index = getIndexfile(kv);
+            lb.uploadStore = getUploadStore(kv);
+            lb.cgiPath = getCgiPath(kv);
+
+            // check valid cgi's
+            if (lb.path == ".php" || lb.path == ".py") {
+                if (lb.cgiPath.empty())
+                    throw ParsingException(formatMessage("cgi_path must set explicit inside `%s` location block", lb.path.c_str()));
+            }
         }
 
         MapKeyValueIter getKeyIter(
@@ -691,6 +699,38 @@ namespace ws {
             }
 
             return root;
+        }
+
+        std::string getUploadStore( MapKeyValue& kv ) const {
+            std::string uploadStore;
+
+            MapKeyValueIter iter = getKeyIter(kv, "upload_store", 1);
+            if (iter == kv.end()) {
+                uploadStore = defaults::UPLOAD_STORE;
+            } else {
+                uploadStore = (*iter).second.front();
+                if (access((*iter).second.front().c_str(), F_OK) != 0) {
+                    throw ParsingException(formatMessage("upload_store: bad path `%s`", (*iter).second.front().c_str()));
+                }
+            }
+
+            return uploadStore;
+        }
+
+        std::string getCgiPath( MapKeyValue& kv ) const {
+            std::string cgiPath;
+
+            MapKeyValueIter iter = getKeyIter(kv, "cgi_path", 1);
+            if (iter == kv.end()) {
+                cgiPath = "";
+            } else {
+                cgiPath = (*iter).second.front();
+                if (access((*iter).second.front().c_str(), F_OK) != 0) {
+                    throw ParsingException(formatMessage("cgi_path: bad path `%s`", (*iter).second.front().c_str()));
+                }
+            }
+
+            return cgiPath;
         }
 
         size_t  getMaxBodySize( MapKeyValue& kv ) const {

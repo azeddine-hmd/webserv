@@ -12,16 +12,19 @@ namespace ws {
     public:
         std::string                                         path;
 
+        // general
         std::string                                         root;
         std::vector<std::string>                            allowedMethods;
         bool                                                autoindex;
         std::string                                         index;
+        std::string                                         uploadStore;
 
+        // redirection
         std::pair<int, std::string>                         redirect;
 
-        //TODO: what data cgi needs?
-        //std::string                                         cgiPath;
-        //std::vector<std::string>                            cgiExit;
+        // cgi
+        std::string                                         cgiPath;
+
 
     public:
         std::map<std::string, std::vector<std::string> > const& getDataKeyValue() const {
@@ -75,8 +78,7 @@ namespace ws {
                 "allow",
                 "autoindex",
                 "upload_store",
-                "cgi_pass",
-                "cgi_ext",
+                "cgi_path",
                 "index",
                 "return",
                 "root",
