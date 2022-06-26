@@ -590,6 +590,8 @@ namespace ws {
             if (lb.path == ".php" || lb.path == ".py") {
                 if (lb.cgiPath.empty())
                     throw ParsingException(formatMessage("cgi_path must set explicit inside `%s` location block", lb.path.c_str()));
+                else if (lb.redirect != defaults::EMPTY_REDIRECT)
+                    throw ParsingException(formatMessage("found redirection inside cgi location block"));
             }
         }
 
