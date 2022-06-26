@@ -15,6 +15,7 @@
 #include "headers.hpp"
 #include "StatusCode.hpp"
 #include <algorithm>
+// #include "cgi.hpp"
 
 
 namespace ws {
@@ -31,6 +32,9 @@ namespace ws {
         bool            _Done;
         bool            _isErr;
 
+        int             _cgiPip;
+        std::string     _cgiFile;
+        int             _cgiTmpFile;
 
         Response();
     public:
@@ -41,6 +45,9 @@ namespace ws {
             _HeadersSent = false;
             _Done = false;
             _BodyFd = -1;
+            _cgiPip = -1;
+            _cgiFile = std::string();
+            _cgiTmpFile = -1;
             _isErr = false;
 
         }
@@ -130,7 +137,7 @@ namespace ws {
             return -1;
         }
 
-        bool   checkRootLocation() {
+        bool   GetRootLocation() {
             int found = FindLocation("/");
             if (found != -1)
             {
@@ -141,11 +148,30 @@ namespace ws {
             return false;
         }
 
-        bool    ExtractLocation( std::string Path )
-        {            
-            std::vector<std::string> Locations = split(Path, "/");
-            if (Locations.size() > 0)
+        bool    GetCGILocation(std::string Path) {
+            std::cout<< "path: " << Path << std::endl;
+
+            std::string CgiType = Path.find(".php") != std::string::npos ? ".php" : ".py";
+            std::cout << "CGI Type = " << CgiType << std::endl;
+            int found = FindLocation(CgiType);
+
+            if (found != -1)
             {
+                std::cout << "found CGI location" << std::endl;
+                _Location = _ServerBlock->locations[found];
+                return true;
+            }
+            return false;
+        }
+
+        bool    ExtractLocation( std::string Path )
+        {
+            int found = -1;
+            if (Path.find(".php") != std::string::npos || Path.find(".py") != std::string::npos)
+                if (GetCGILocation(Path))
+                    return true;
+            std::vector<std::string> Locations = split(Path, "/");
+            if (Locations.size() > 0) {
                 std::string ToFind = "/" + Locations[0];
                 for(int i = 0; i < Locations.size(); i++)
                 {
@@ -159,7 +185,7 @@ namespace ws {
                         ToFind += "/" + Locations[i + 1];
                 }
             }
-            return (checkRootLocation());
+            return (GetRootLocation());
         }
 
        void    SendError(int ErrCode) {
@@ -183,26 +209,6 @@ namespace ws {
             _HeadersSent = true;
        }
 
-    //    void    SendError( std::string Error) {
-    //         int         ErrorCode = To_Int(Error.substr(0, 3));
-    //         std::string FilePath =  _ServerBlock->errorPages.find(ErrorCode)->second;
-
-    //         _BodyFd = open(FilePath.c_str(), O_RDONLY);
-    //         _Headers += "HTTP/1.1 " + Error + "\r\n";
-    //         _Headers += "Date: " + GetTime();
-    //         // if (ErrorCode == 405)
-    //             // The Allow header lists the set of methods supported by a resource.
-    //         _Headers += "Content-Type: text/html;charset=UTF-8\r\n";
-    //         _Headers += "Content-Length: " + To_String(getContentLength(_BodyFd)) + "\r\n";
-    //         _Headers += "Connection: close\r\n\r\n";
-
-
-    //         if (write(_req.getSockFd(), _Headers.c_str(), _Headers.length()) < 0)
-    //             throw std::runtime_error("error while writing to client");
-    //         _HeadersSent = true;
-    //    }
-
-// auto index
         std::string getParent(std::string location)
         {
             std::size_t found = location.find_last_of("/\\");
@@ -370,6 +376,9 @@ namespace ws {
 
         std::string     GetFilePath(std::string Path) {
             std::string Root = _Location.root;
+
+            if (_Location.path == ".py" || _Location.path == ".php")
+                return Root + Path;
             std::string NewPath = Path.substr(Path.find(_Location.path) + _Location.path.length()
                                         , Path.length());
             if (Root[Root.length() - 1] != '/')
@@ -413,6 +422,31 @@ namespace ws {
             return (0);
         }
 
+        void    SendWithCGI(std::string FilePath) {
+            std::cout << "executing cgi ..." << std::endl;
+            cgi CGI(_req, FilePath);
+            int fd = CGI.execute();
+            std::cout << "fd outside cgi: " << fd << std::endl;
+            if (fd == -1)
+                return SendError(500);
+            _Headers += "HTTP/1.1 200 OK\r\nDate: " + GetTime();
+            char buffer[1024];
+            while (_Headers.find("\r\n\r\n") == std::string::npos)
+            {
+                int ret = read(fd, buffer, 1);
+                if (ret < 0)
+                    throw std::runtime_error("error while reading inside response");
+                _Headers += buffer;
+            }
+            std::cout << "sending headers " << std::endl;
+            write(1, _Headers.c_str(), _Headers.find("\r\n\r\n"));
+            write(_req.getSockFd(), _Headers.c_str(), _Headers.find("\r\n\r\n") + 2);
+            // std::cout << _Headers << std::endl;
+            _cgiFile = "/tmp/cgiFile" + GetTime();
+            _cgiTmpFile = open(_cgiFile.c_str(), O_CREAT | O_WRONLY | O_TRUNC, 0666);
+            _cgiPip = fd;
+        }
+
         void    sendHeaders() {
             std::string Method = _req.getHeader("Method");
             std::string Path = _req.getHeader("Path");
@@ -423,15 +457,48 @@ namespace ws {
             if ((ErrCode = checkMethod(Method)))
                 return SendError(ErrCode);
             std::string FilePath = GetFilePath(Path);
+            //TO Do: -check file Errors here
             if (_Location.redirect != defaults::EMPTY_REDIRECT)
                 return sendWithRedirect();
+            if (_Location.path == ".php" || _Location.path == ".py" &&
+                    Method == "GET" || Method == "POST")
+                return SendWithCGI(FilePath);
             if (Method == "GET")
                 return SendWithGet(FilePath);
-            else if (Method == "POST")
+            if (Method == "POST")
                 return SendWithPost(FilePath);
-            else if (Method == "DELETE")
+            if (Method == "DELETE")
                 return SendWithDelete(FilePath);
         }
+
+        void    readingPipCgi( void ) {
+            if (_Headers.find("\r\n\r\n") + 4 < _Headers.size()) {
+                std::string BodyPart = _Headers.substr(_Headers.find("\r\n\r\n") + 4
+                , _Headers.size());
+                // std::cout << "bodyPart: " << BodyPart << std::endl;
+                write(_cgiTmpFile, BodyPart.c_str(), _Headers.size());
+                _Headers.clear();
+            }
+            char buff[1024];
+            // bzero(buff, 1024);
+            int readret = read(_cgiPip, buff, 1024);
+            if (readret == 0)
+            {
+                _Headers.clear();
+                close(_cgiTmpFile);
+                _BodyFd = open(_cgiFile.c_str() , O_RDONLY);
+                _Headers += "Content-Length: " + To_String(getContentLength(_BodyFd)) + "\r\n\r\n";
+                write(_req.getSockFd(), _Headers.c_str(), _Headers.size());
+                close(_cgiPip);
+                _cgiPip = -1;
+                _HeadersSent = true;
+            }
+            // std::cout << "buff: | ";
+            write(1, buff, readret);
+            // std::cout << " |" << std::endl;
+            write(_cgiTmpFile, buff, readret);
+        }
+
 
     public:
 
@@ -439,10 +506,18 @@ namespace ws {
          *  main entry.
          *  engine will invoke this everytime socket is ready for writing
          */
+        // int             _cgiPip;
+        // std::string     _cgiFile;
+        // int             _cgiTmpFile;
+
+
         void send() {
-            if (!_HeadersSent) {
+            if (_cgiPip > -1) {
+                readingPipCgi();
+            }
+            else if (!_HeadersSent) {
                 sendHeaders();
-                std::cout << _Headers;
+                // std::cout << _Headers;
             }
             else if (_BodyFd > -1) {
                 sendBody();
