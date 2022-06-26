@@ -209,7 +209,7 @@ namespace ws {
             if(found == 0)
                 return "/";
             else
-                return location.substr(0,found);
+                return location.substr(0, found);
         }
 
         std::string makeRow(std::string location, std::string text)
@@ -231,10 +231,21 @@ namespace ws {
                 buffer += makeRow(location,".");
                 for(d=readdir(dr); d!=NULL; d=readdir(dr))
                 {
-                    if(std::string(d->d_name) == "..")
-                        buffer += makeRow(getParent(location),"..");
-                    else if(std::string(d->d_name) != ".")
-                        buffer += makeRow(d->d_name,d->d_name);
+                    if(std::string(d->d_name) == "..") {
+						std::string parent = getParent(location);
+						//std::cout << "parent: " << parent << std::endl;
+                        buffer += makeRow(parent,"..");
+					} else if(std::string(d->d_name) != ".") {
+						std::string abslPath;
+						if (location.size() > 1) {
+							abslPath = location + "/" + d->d_name;
+						} else {
+							abslPath = location + d->d_name;
+						}
+						std::cout << "abslPath: " << abslPath << std::endl;
+						std::cout << "file name: " << d->d_name << std::endl;
+                        buffer += makeRow(abslPath,d->d_name);
+					}
                 }
                 closedir(dr);
             }
