@@ -447,21 +447,29 @@ namespace ws {
             _cgiPip = fd;
         }
 
+        bool     checkContentLen( void ) {
+            size_t mByte = 1048576;
+            size_t maxLen = _ServerBlock->maxBodySize * mByte;
+            size_t ReqLen = To_Int(_req.getHeader("Content-Length"));
+            return ReqLen < maxLen;
+        }
+
         void    sendHeaders() {
             std::string Method = _req.getHeader("Method");
             std::string Path = _req.getHeader("Path");
             int         ErrCode;
 
+            if (!checkContentLen())
+                return SendError(413);
             if (!ExtractLocation(Path))
                 return SendError(404);
             if ((ErrCode = checkMethod(Method)))
                 return SendError(ErrCode);
             std::string FilePath = GetFilePath(Path);
-            //TO Do: -check file Errors here
             if (_Location.redirect != defaults::EMPTY_REDIRECT)
                 return sendWithRedirect();
-            if (_Location.path == ".php" || _Location.path == ".py" &&
-                    Method == "GET" || Method == "POST")
+            if ((_Location.path == ".php" || _Location.path == ".py") &&
+                    (Method == "GET" || Method == "POST"))
                 return SendWithCGI(FilePath);
             if (Method == "GET")
                 return SendWithGet(FilePath);
