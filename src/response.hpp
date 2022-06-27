@@ -428,15 +428,14 @@ namespace ws {
             if (fd == -1)
                 return SendError(500);
             _Headers += "HTTP/1.1 200 OK\r\nDate: " + GetTime();
-            char buffer[1024];
+            char buffer;
             while (_Headers.find("\r\n\r\n") == std::string::npos)
             {
-                int ret = read(fd, buffer, 1);
+                int ret = read(fd, &buffer, 1);
                 if (ret == 0)
                     break;
                 if (ret < 0)
                     throw std::runtime_error("error while reading inside response");
-                std::cout << buffer << std::endl;
                 _Headers += buffer;
             }
             write(_req.getSockFd(), _Headers.c_str(), _Headers.find("\r\n\r\n") + 2);

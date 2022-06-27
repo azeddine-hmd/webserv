@@ -27,7 +27,6 @@ namespace ws {
     public:
 
         cgi(Request &ReqData, String FilePath, String cgiBin) : _Data(ReqData) {
-
             std::vector<std::string> Path = split(FilePath, "?");
             if (Path.size() > 0)
             {
@@ -68,10 +67,6 @@ namespace ws {
             setenv("REQUEST_METHOD", this->_Method.c_str(), 1);
             setenv("SCRIPT_FILENAME", this->_ScriptPath.c_str(), 1);
             setenv("REDIRECT_STATUS", "true", 1);
-            // if (this->_ScriptPath.find(".php") != std::string::npos)
-            //     this->_Bin = "/bin/php-cgi";
-            // else
-            //     this->_Bin = "/usr/bin/python3"; //change it to Python later
             setenv("SERVER_PROTOCOL", "HTTP/1.1", 1);
         }
 
@@ -87,7 +82,6 @@ namespace ws {
 
         int execWithPOST(char *args[3], int fd[2]) {
             std::cout << "cgi executing post ..." << std::endl;
-            std::cout << "bodyfile " << _Data.getBodyFile().name << std::endl;
             int fd3 = open(_Data.getBodyFile().name.c_str(), O_RDONLY);
             dup2(fd3, 0);
             dup2(fd[1], 1);
@@ -107,8 +101,6 @@ namespace ws {
             };
 
             pipe(fd);
-            fcntl(fd[0], F_SETFL, O_NONBLOCK);
-            fcntl(fd[1], F_SETFL, O_NONBLOCK);
             pid = fork();
             if (pid < 0)
                 return (-1);
