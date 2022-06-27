@@ -422,30 +422,22 @@ namespace ws {
 
         void    SendWithCGI(std::string FilePath) {
             std::cout << "executing cgi ..." << std::endl;
-            cgi CGI(_req, FilePath);
+            cgi CGI(_req, FilePath, _Location.cgiPath);
             int fd = CGI.execute();
             std::cout << "cgi done ... " << std::endl;
             if (fd == -1)
                 return SendError(500);
             _Headers += "HTTP/1.1 200 OK\r\nDate: " + GetTime();
-            struct pollfd   fds;
-            fds.fd = fd;
-            fds.events = POLLIN;
-            char val;
-            int rc;
-            while (_Headers.find("\r\n\r\n") == std::string::npos) {
-                if ((rc = poll(&fds, 1, 0)) < 0)  // poll ret 0 == timeout || < 0  == error 
-                    SendError(500);
-                if (rc == 1 && fds.events & POLLIN ) {
-                    if (int count = read(fds.fd, &val, 1) < 1) {
-                        if (count < 0) {
-                            close(fd);
-                            SendError(500);
-                        }
-                        break;
-                    }
-                    _Headers += val;
-	            }
+            char buffer[1024];
+            while (_Headers.find("\r\n\r\n") == std::string::npos)
+            {
+                int ret = read(fd, buffer, 1);
+                if (ret == 0)
+                    break;
+                if (ret < 0)
+                    throw std::runtime_error("error while reading inside response");
+                std::cout << buffer << std::endl;
+                _Headers += buffer;
             }
             write(_req.getSockFd(), _Headers.c_str(), _Headers.find("\r\n\r\n") + 2);
             _cgiFile = "/tmp/cgiFile" + GetTime();
@@ -512,10 +504,6 @@ namespace ws {
          *  main entry.
          *  engine will invoke this everytime socket is ready for writing
          */
-        // int             _cgiPip;
-        // std::string     _cgiFile;
-        // int             _cgiTmpFile;
-
 
         void send() {
             if (_cgiPip > -1) {

@@ -7,9 +7,7 @@
 #include <poll.h>
 #include <sys/stat.h>
 #include <sys/wait.h>
-// #include "mimeTypes.hpp"
 #include "request.hpp"
-// #include "config/config_model.hpp"
 
 #define _Error_ "HTTP/1.1 500 Internal Server Error\r\n"
 extern char **environ;
@@ -28,7 +26,7 @@ namespace ws {
         // cgi();
     public:
 
-        cgi(Request &ReqData, String FilePath) : _Data(ReqData) {
+        cgi(Request &ReqData, String FilePath, String cgiBin) : _Data(ReqData) {
 
             std::vector<std::string> Path = split(FilePath, "?");
             if (Path.size() > 0)
@@ -40,6 +38,7 @@ namespace ws {
             else            
                 this->_ScriptPath = FilePath;
             this->_Method = ReqData.getHeader("Method");
+            this->_Bin = cgiBin;
             InitMetaVariables(ReqData);
         }
 
@@ -69,10 +68,10 @@ namespace ws {
             setenv("REQUEST_METHOD", this->_Method.c_str(), 1);
             setenv("SCRIPT_FILENAME", this->_ScriptPath.c_str(), 1);
             setenv("REDIRECT_STATUS", "true", 1);
-            if (this->_ScriptPath.find(".php") != std::string::npos)
-                this->_Bin = "/bin/php-cgi";
-            else
-                this->_Bin = "/usr/bin/python3"; //change it to Python later
+            // if (this->_ScriptPath.find(".php") != std::string::npos)
+            //     this->_Bin = "/bin/php-cgi";
+            // else
+            //     this->_Bin = "/usr/bin/python3"; //change it to Python later
             setenv("SERVER_PROTOCOL", "HTTP/1.1", 1);
         }
 
@@ -108,6 +107,8 @@ namespace ws {
             };
 
             pipe(fd);
+            fcntl(fd[0], F_SETFL, O_NONBLOCK);
+            fcntl(fd[1], F_SETFL, O_NONBLOCK);
             pid = fork();
             if (pid < 0)
                 return (-1);
@@ -118,7 +119,7 @@ namespace ws {
                 else if (this->_Method == "POST")
                     execWithPOST(args, fd);
             }
-            waitpid(pid, NULL, 0);
+            // waitpid(pid, NULL, 0);
             close(fd[1]);
             return (fd[0]);
         }
