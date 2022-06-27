@@ -59,19 +59,6 @@ namespace ws {
             https://www.ibm.com/docs/en/cics-ts/5.2?topic=protocol-http-responses
         */
 
-       int IsFile(std::string &Path) {
-           struct stat status;
-           if (stat(Path.c_str(), &status) == 0) {
-               if (status.st_mode & S_IFDIR) // Directory
-                   return 0;
-               else if (status.st_mode & S_IFREG) // Regular File
-                   return 1;
-               else
-                   return 0;
-           } else
-               return 0;
-       }
-
         int To_Int(std::string stringValue)
         {
             std::stringstream intValue(stringValue);
@@ -354,6 +341,22 @@ namespace ws {
             _Done = true;
         }
 
+
+       int  IsFile(std::string &Path) {
+            struct stat status;
+            if (stat(Path.c_str(), &status) == 0) {
+                if (status.st_mode & S_IFREG) // Regular File
+                    return (1);
+                SendError(403);
+                return (0);
+            }
+            if (errno == EACCES) //Search permission is denied for one of the directories in the path prefix of path
+                SendError(403);
+            else if (errno == ENOENT) //A component of path does not exist, or path is an empty string.
+                SendError(404);
+            return (0);
+       }
+
         void    SendWithDelete(std::string FilePath) {
             //Protect root srcs
             if (IsFile(FilePath)) {
@@ -366,10 +369,10 @@ namespace ws {
                         throw std::runtime_error("error while writing to client");
                     _HeadersSent = true;
                     _Done = true;              
-                } else
-                    SendError(403);
-            } else
-                SendError(404);
+                }
+                else
+                    SendError(500);
+            }
         }
 
         std::string     GetFilePath(std::string Path) {
@@ -477,7 +480,6 @@ namespace ws {
                 _Headers.clear();
             }
             char buff[1024];
-            // bzero(buff, 1024);
             int readret = read(_cgiPip, buff, 1024);
             if (readret == 0)
             {

@@ -28,14 +28,10 @@ namespace ws {
 
         cgi(Request &ReqData, String FilePath, String cgiBin) : _Data(ReqData) {
             std::vector<std::string> Path = split(FilePath, "?");
-            if (Path.size() > 0)
-            {
-                this->_ScriptPath = Path[0];
-                for (int i = 1; i < Path.size(); i++)
-                    this->_Query += Path[i];
-            }
-            else            
-                this->_ScriptPath = FilePath;
+
+            this->_ScriptPath = Path[0];
+            if (Path.size() > 1)
+                this->_Query += Path[1];
             this->_Method = ReqData.getHeader("Method");
             this->_Bin = cgiBin;
             InitMetaVariables(ReqData);
@@ -111,7 +107,6 @@ namespace ws {
                 else if (this->_Method == "POST")
                     execWithPOST(args, fd);
             }
-            // waitpid(pid, NULL, 0);
             close(fd[1]);
             return (fd[0]);
         }
