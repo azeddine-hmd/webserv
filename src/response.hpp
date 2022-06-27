@@ -129,8 +129,8 @@ namespace ws {
         int FindLocation( std::string Location ) {
             for (int i = 0 ; i< _ServerBlock->locations.size(); i++)
             {
-                std::cout << "config: "<< _ServerBlock->locations[i].path << " | ";
-                std::cout << "loc: " << Location << std::endl;
+                // std::cout << "config: "<< _ServerBlock->locations[i].path << " | ";
+                // std::cout << "loc: " << Location << std::endl;
                 if (_ServerBlock->locations[i].path == Location)
                     return i;
             }
@@ -141,7 +141,7 @@ namespace ws {
             int found = FindLocation("/");
             if (found != -1)
             {
-                std::cout << "found root location" << std::endl;
+                // std::cout << "found root location" << std::endl;
                 _Location = _ServerBlock->locations[found];
                 return true;
             }
@@ -149,8 +149,6 @@ namespace ws {
         }
 
         bool    GetCGILocation(std::string Path) {
-            std::cout<< "path: " << Path << std::endl;
-
             std::string CgiType = Path.find(".php") != std::string::npos ? ".php" : ".py";
             std::cout << "CGI Type = " << CgiType << std::endl;
             int found = FindLocation(CgiType);
@@ -426,22 +424,30 @@ namespace ws {
             std::cout << "executing cgi ..." << std::endl;
             cgi CGI(_req, FilePath);
             int fd = CGI.execute();
-            std::cout << "fd outside cgi: " << fd << std::endl;
+            std::cout << "cgi done ... " << std::endl;
             if (fd == -1)
                 return SendError(500);
             _Headers += "HTTP/1.1 200 OK\r\nDate: " + GetTime();
-            char buffer[1024];
-            while (_Headers.find("\r\n\r\n") == std::string::npos)
-            {
-                int ret = read(fd, buffer, 1);
-                if (ret < 0)
-                    throw std::runtime_error("error while reading inside response");
-                _Headers += buffer;
+            struct pollfd   fds;
+            fds.fd = fd;
+            fds.events = POLLIN;
+            char val;
+            int rc;
+            while (_Headers.find("\r\n\r\n") == std::string::npos) {
+                if ((rc = poll(&fds, 1, 0)) < 0)  // poll ret 0 == timeout || < 0  == error 
+                    SendError(500);
+                if (rc == 1 && fds.events & POLLIN ) {
+                    if (int count = read(fds.fd, &val, 1) < 1) {
+                        if (count < 0) {
+                            close(fd);
+                            SendError(500);
+                        }
+                        break;
+                    }
+                    _Headers += val;
+	            }
             }
-            std::cout << "sending headers " << std::endl;
-            write(1, _Headers.c_str(), _Headers.find("\r\n\r\n"));
             write(_req.getSockFd(), _Headers.c_str(), _Headers.find("\r\n\r\n") + 2);
-            // std::cout << _Headers << std::endl;
             _cgiFile = "/tmp/cgiFile" + GetTime();
             _cgiTmpFile = open(_cgiFile.c_str(), O_CREAT | O_WRONLY | O_TRUNC, 0666);
             _cgiPip = fd;
@@ -494,7 +500,7 @@ namespace ws {
                 _HeadersSent = true;
             }
             // std::cout << "buff: | ";
-            write(1, buff, readret);
+            // write(1, buff, readret);
             // std::cout << " |" << std::endl;
             write(_cgiTmpFile, buff, readret);
         }
