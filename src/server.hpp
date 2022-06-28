@@ -34,17 +34,6 @@ namespace ws {
             mSocketFD = -1;
         }
 
-        Server& operator=( Server const& rhs ) {
-            if (this != &rhs) {
-                mServerBlock = rhs.mServerBlock;
-                mAddress = rhs.mAddress;
-                mAddrlen = rhs.mAddrlen;
-                mSocketFD = rhs.mSocketFD;
-            }
-
-            return *this;
-        }
-
         void start() {
             mSocketFD = getSocketFileDescriptor();
         }

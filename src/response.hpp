@@ -114,7 +114,7 @@ namespace ws {
         }
 
         int FindLocation( std::string Location ) {
-            for (int i = 0 ; i< _ServerBlock->locations.size(); i++)
+            for (size_t i = 0 ; i < _ServerBlock->locations.size(); i++)
             {
                 // std::cout << "config: "<< _ServerBlock->locations[i].path << " | ";
                 // std::cout << "loc: " << Location << std::endl;
@@ -158,7 +158,7 @@ namespace ws {
             std::vector<std::string> Locations = split(Path, "/");
             if (Locations.size() > 0) {
                 std::string ToFind = "/" + Locations[0];
-                for(int i = 0; i < Locations.size(); i++)
+                for(size_t i = 0; i < Locations.size(); i++)
                 {
                     int found = FindLocation(ToFind);
                     if (found != -1)
@@ -186,6 +186,7 @@ namespace ws {
             _Headers += "Content-Length: " + To_String(getContentLength(_BodyFd)) + "\r\n";
             if (_req.getHeader("Connection") == "keep-alive")
                 _Headers += "Connection: " + _req.getHeader("Connection") + "\r\n";
+           interceptResponseHeaders(_Headers);
             _Headers += "\r\n";
 
 
@@ -274,6 +275,7 @@ namespace ws {
 
             if (_req.getHeader("Connection") == "keep-alive")
                 _Headers += "Connection: " + _req.getHeader("Connection") + "\r\n";
+            interceptResponseHeaders(_Headers);
             _Headers += "\r\n";
             if (write(_req.getSockFd(), _Headers.c_str(), _Headers.length()) < 0)
                 throw std::runtime_error("error while writing to client");
@@ -288,8 +290,10 @@ namespace ws {
             else {
                 _Headers += "HTTP/1.1 200 OK\r\nDate: " + GetTime();
                 _Headers += "Content-Type: text/html;charset=UTF-8\r\n";
-                _Headers += "Content-Length: " + To_String(buffer.length()) + "\r\n\r\n";
-                _Headers += buffer + "\r\n\r\n";
+                _Headers += "Content-Length: " + To_String(buffer.length()) + "\r\n";
+                interceptResponseHeaders(_Headers);
+                _Headers += "\r\n";
+                _Headers += buffer;
                 write(_req.getSockFd(), _Headers.c_str(), _Headers.length());
                 _HeadersSent = true;
                 _Done = true;
@@ -331,13 +335,11 @@ namespace ws {
             if (_Location.uploadStore.back() == '/')
                 _Location.uploadStore.pop_back();
             std::string cmd = "mv " + _req.getBodyFile().name + ' ' + _Location.uploadStore + "/" + FileName;
-            //TODO: debug
-            std::cout << "cmd: " << cmd << std::endl;
-
             system(cmd.c_str());
             _Headers += "HTTP/1.1 201 CREATED\r\nDate: " + GetTime();
             if (_req.getHeader("Connection") == "keep-alive")
                 _Headers += "Connection: " + _req.getHeader("Connection") + "\r\n";
+            interceptResponseHeaders(_Headers);
             _Headers += "\r\n";
             if (write(_req.getSockFd(), _Headers.c_str(), _Headers.length()) < 0)
                 throw std::runtime_error("error while writing to client");
@@ -368,6 +370,7 @@ namespace ws {
                     _Headers += "HTTP/1.1 204 No Content\r\nDate: " + GetTime();
                     if (_req.getHeader("Connection") == "keep-alive")
                         _Headers += "Connection: " + _req.getHeader("Connection") + "\r\n";
+                    interceptResponseHeaders(_Headers);
                     _Headers += "\r\n";
                     if (write(_req.getSockFd(), _Headers.c_str(), _Headers.length()) < 0)
                         throw std::runtime_error("error while writing to client");
@@ -403,6 +406,7 @@ namespace ws {
             _Headers += "Location: " + location + "\r\n";
             if (_req.getHeader("Connection") == "keep-alive")
                 _Headers += "Connection: " + _req.getHeader("Connection") + "\r\n";
+            interceptResponseHeaders(_Headers);
             _Headers += "\r\n";
             write(_req.getSockFd(), _Headers.c_str(), _Headers.length());
             _HeadersSent = true;
@@ -436,6 +440,7 @@ namespace ws {
             if (fd == -1)
                 return SendError(500);
             _Headers += "HTTP/1.1 200 OK\r\nDate: " + GetTime();
+            interceptResponseHeaders(_Headers);
             char buffer;
             while (_Headers.find("\r\n\r\n") == std::string::npos)
             {
@@ -517,6 +522,26 @@ namespace ws {
             }
         }
 
+        void addSessionCookie(std::string& headers) {
+            std::string sessionKeyValue("sessionid=" + generateUUID());
+            headers += "Set-Cookie: " + sessionKeyValue + "\r\n";
+        }
+
+        void interceptResponseHeaders(std::string& headers) {
+            std::string requestCookie = _req.getHeader("Cookie");
+            if (!requestCookie.empty()) {
+                // found cookies !
+                std::string cookieKey = split(requestCookie, "=").front();
+                // add session cookie if doesn't exit already
+                if (cookieKey != "sessionid") {
+                    addSessionCookie(headers);
+                }
+            } else {
+                // empty cookies !
+                // set session cookie if it's his first request
+                addSessionCookie(headers);
+            }
+        }
 
     public:
 
