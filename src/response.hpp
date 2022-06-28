@@ -339,14 +339,22 @@ namespace ws {
             // need to protect things
             std::vector<std::string> Paths = split(FilePath, "/");
             std::string FileName = Paths[Paths.size() -1];
+
+			std::string path = _req.getHeader("Path");
+			if (path.back() == '/') {
+				return SendError(StatusCode::notAcceptable);
+			}
+
             if (_Location.uploadStore.back() == '/')
                 _Location.uploadStore.pop_back();
             std::string cmd = "mv " + _req.getBodyFile().name + ' ' + _Location.uploadStore + "/" + FileName;
+            std::cout << "uploading to: " << _Location.uploadStore + "/" + FileName << std::endl;
             system(cmd.c_str());
             _Headers += "HTTP/1.1 201 CREATED\r\nDate: " + GetTime();
             if (_req.getHeader("Connection") == "keep-alive")
                 _Headers += "Connection: " + _req.getHeader("Connection") + "\r\n";
             interceptResponseHeaders(_Headers);
+            _Headers += "Content-Length: 0\r\n";
             _Headers += "\r\n";
             if (write(_req.getSockFd(), _Headers.c_str(), _Headers.length()) < 0)
                 throw std::runtime_error("error while writing to client");
