@@ -72,6 +72,7 @@ namespace ws {
         void execWithGET(char *args[3], int fd[2]) {
             std::cout << "cgi executing get ..." << std::endl;
             dup2(fd[1], 1);
+            close(0);
             close(fd[1]);
             close(fd[0]);
             execve(args[0], args, environ);
