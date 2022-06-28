@@ -328,7 +328,11 @@ namespace ws {
             // need to protect things
             std::vector<std::string> Paths = split(FilePath, "/");
             std::string FileName = Paths[Paths.size() -1];
-            std::string cmd = "mv " + _req.getBodyFile().name + ' ' + std::string(defaults::UPLOAD_STORE) + FileName;
+            if (_Location.uploadStore.back() == '/')
+                _Location.uploadStore.pop_back();
+            std::string cmd = "mv " + _req.getBodyFile().name + ' ' + _Location.uploadStore + "/" + FileName;
+            //TODO: debug
+            std::cout << "cmd: " << cmd << std::endl;
 
             system(cmd.c_str());
             _Headers += "HTTP/1.1 201 CREATED\r\nDate: " + GetTime();
@@ -441,7 +445,9 @@ namespace ws {
                     throw std::runtime_error("error while reading inside response");
                 _Headers += buffer;
             }
-            write(_req.getSockFd(), _Headers.c_str(), _Headers.find("\r\n\r\n") + 2);
+            std::cout << "{{{" << _Headers << "}}}" << std::endl;
+            if (write(_req.getSockFd(), _Headers.c_str(), _Headers.find("\r\n\r\n") + 2) < 0)
+                throw std::runtime_error("error while writing to client");
             _cgiFile = "/tmp/cgiFile" + GetTime();
             _cgiTmpFile = open(_cgiFile.c_str(), O_CREAT | O_WRONLY | O_TRUNC, 0666);
             _cgiPip = fd;
@@ -484,26 +490,29 @@ namespace ws {
                 std::string BodyPart = _Headers.substr(_Headers.find("\r\n\r\n") + 4
                 , _Headers.size());
                 // std::cout << "bodyPart: " << BodyPart << std::endl;
-                write(_cgiTmpFile, BodyPart.c_str(), _Headers.size());
+                if (write(_cgiTmpFile, BodyPart.c_str(), _Headers.size()) < 0)
+                    throw std::runtime_error("write error");
                 _Headers.clear();
             }
             char buff[1024];
             int readret = read(_cgiPip, buff, 1024);
+            if (readret < 0)
+                throw std::runtime_error("read error");
             if (readret == 0)
             {
                 _Headers.clear();
                 close(_cgiTmpFile);
                 _BodyFd = open(_cgiFile.c_str() , O_RDONLY);
                 _Headers += "Content-Length: " + To_String(getContentLength(_BodyFd)) + "\r\n\r\n";
-                write(_req.getSockFd(), _Headers.c_str(), _Headers.size());
+                if (write(_req.getSockFd(), _Headers.c_str(), _Headers.size()) < 0)
+                    throw std::runtime_error("write error");
                 close(_cgiPip);
                 _cgiPip = -1;
                 _HeadersSent = true;
             }
-            // std::cout << "buff: | ";
-            // write(1, buff, readret);
-            // std::cout << " |" << std::endl;
-            write(_cgiTmpFile, buff, readret);
+            if (write(_cgiTmpFile, buff, readret) < 0)
+                throw std::runtime_error("write error");
+
         }
 
 
