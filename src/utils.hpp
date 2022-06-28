@@ -3,7 +3,6 @@
 #include <vector>
 #include <string>
 #include <cstdarg>
-#include <uuid/uuid.h>
 
 # define COLORS_RED_BOLD "\033[1;031m"
 # define COLORS_DEFAULT "\033[0;0m"
@@ -83,15 +82,4 @@ namespace ws {
         std::cout << ret << std::endl;
         return ret;
     }
-
-    std::string generateUUID() {
-        uuid_t binuuid;
-        uuid_generate_random(binuuid);
-
-        char tmp[37];
-        uuid_unparse(binuuid, tmp);
-
-        return std::string(tmp);
-    }
-
 }

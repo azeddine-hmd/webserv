@@ -116,8 +116,8 @@ namespace ws {
         int FindLocation( std::string Location ) {
             for (size_t i = 0 ; i < _ServerBlock->locations.size(); i++)
             {
-                // std::cout << "config: "<< _ServerBlock->locations[i].path << " | ";
-                // std::cout << "loc: " << Location << std::endl;
+                std::cout << "config: "<< _ServerBlock->locations[i].path << " | ";
+                std::cout << "loc: " << Location << std::endl;
                 if (_ServerBlock->locations[i].path == Location)
                     return i;
             }
@@ -174,14 +174,21 @@ namespace ws {
         }
 
        void    SendError(int ErrCode) {
-            // int         ErrorCode = To_Int(Error.substr(0, 3));
             std::string FilePath =  _ServerBlock->errorPages.find(ErrCode)->second;
 
             _BodyFd = open(FilePath.c_str(), O_RDONLY);
             _Headers += "HTTP/1.1 " + To_String(ErrCode) + " " + StatusCode::reasonPhrase(ErrCode) + "\r\n";
             _Headers += "Date: " + GetTime();
-            // if (ErrorCode == 405)
-                // The Allow header lists the set of methods supported by a resource.
+            if (ErrCode == 405) {
+                _Headers += "Allow: ";
+                for (size_t i = 0; i < _Location.allowedMethods.size(); i++) {
+                    _Headers += _Location.allowedMethods[i];
+                    if (i < _Location.allowedMethods.size() -1)
+                        _Headers += ", ";
+
+                }
+                _Headers += "\r\n";
+            }
             _Headers += "Content-Type: text/html;charset=UTF-8\r\n";
             _Headers += "Content-Length: " + To_String(getContentLength(_BodyFd)) + "\r\n";
             if (_req.getHeader("Connection") == "keep-alive")
@@ -439,8 +446,6 @@ namespace ws {
             std::cout << "cgi done ... " << std::endl;
             if (fd == -1)
                 return SendError(500);
-            _Headers += "HTTP/1.1 200 OK\r\nDate: " + GetTime();
-            interceptResponseHeaders(_Headers);
             char buffer;
             while (_Headers.find("\r\n\r\n") == std::string::npos)
             {
@@ -452,6 +457,13 @@ namespace ws {
                 _Headers += buffer;
             }
             std::cout << "{{{" << _Headers << "}}}" << std::endl;
+           if (_Headers.find("Status: 302") != std::string::npos)
+                _Headers = "HTTP/1.1 302 Found\r\nDate: " + GetTime() + _Headers;
+            else if (_Headers.find("Status: 301") != std::string::npos)
+                _Headers = "HTTP/1.1 301 Moved Permanetly\r\nDate: " + GetTime() + _Headers;
+            else
+                _Headers = "HTTP/1.1 200 OK\r\nDate: " + GetTime() + _Headers;
+            interceptResponseHeaders(_Headers);
             if (write(_req.getSockFd(), _Headers.c_str(), _Headers.find("\r\n\r\n") + 2) < 0)
                 throw std::runtime_error("error while writing to client");
             _cgiFile = "/tmp/cgiFile" + GetTime();
@@ -471,13 +483,14 @@ namespace ws {
             std::string Path = _req.getHeader("Path");
             int         ErrCode;
 
-            if (!checkContentLen())
+            if (_ServerBlock->maxBodySize != 0 && !checkContentLen())
                 return SendError(413);
             if (!ExtractLocation(Path))
                 return SendError(404);
             if ((ErrCode = checkMethod(Method)))
                 return SendError(ErrCode);
             std::string FilePath = GetFilePath(Path);
+            std::cout << "built path " << FilePath << std::endl;
             if (_Location.redirect != defaults::EMPTY_REDIRECT)
                 return sendWithRedirect();
             if ((_Location.path == ".php" || _Location.path == ".py") &&

@@ -65,6 +65,7 @@ namespace ws {
                 setenv("QUERY_STRING", "", 1);
             setenv("REQUEST_METHOD", this->_Method.c_str(), 1);
             setenv("SCRIPT_FILENAME", this->_ScriptPath.c_str(), 1);
+            setenv("HTTP_COOKIE", Data.getHeader("Cookie").c_str() , 1);
             setenv("REDIRECT_STATUS", "true", 1);
             setenv("SERVER_PROTOCOL", "HTTP/1.1", 1);
         }
