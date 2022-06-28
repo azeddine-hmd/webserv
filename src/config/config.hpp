@@ -593,6 +593,19 @@ namespace ws {
                 else if (lb.redirect != defaults::EMPTY_REDIRECT)
                     throw ParsingException(formatMessage("found redirection inside cgi location block"));
             }
+
+            // check allowed methods
+            if (lb.allowedMethods.size() != 1) {
+                for (size_t i = 0; i < lb.allowedMethods.size(); i++) {
+                    if (lb.allowedMethods[i] == "NONE")
+                        throw ParsingException(formatMessage("location: `%s`: allow: NONE: should be single value only", lb.path.c_str()));
+                }
+            } else {
+                if (lb.allowedMethods.front() == "NONE") {
+                    lb.allowedMethods.pop_back();
+                }
+            }
+
         }
 
         MapKeyValueIter getKeyIter(
@@ -775,8 +788,10 @@ namespace ws {
                     allowedMethods.push_back("POST");
                 } else if (allowed[i] == "DELETE") {
                     allowedMethods.push_back("DELETE");
+                } else if (allowed[i] == "NONE") {
+                    allowedMethods.push_back("NONE");
                 } else {
-                    throw ParsingException(formatMessage("Unknown http method `%s`", allowed[i].c_str()));
+                    throw ParsingException(formatMessage("unknown http method `%s`", allowed[i].c_str()));
                 }
             }
 
