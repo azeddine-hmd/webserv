@@ -108,9 +108,8 @@ namespace ws {
                 _Done = true;
                 return;
             }
-            if (write(_req.getSockFd(), buffer, readRet) < 0)
+            if (write(_req.getSockFd(), buffer, readRet) <= 0)
                 throw std::runtime_error("error while writing to client");
-            // write(_req.getSockFd(), "\r\n\r\n", 4);
         }
 
         int FindLocation( std::string Location ) {
@@ -491,7 +490,7 @@ namespace ws {
                 , _Headers.size());
                 // std::cout << "bodyPart: " << BodyPart << std::endl;
                 if (write(_cgiTmpFile, BodyPart.c_str(), _Headers.size()) < 0)
-                    throw std::runtime_error("write error");
+                    throw std::runtime_error("write error 1");
                 _Headers.clear();
             }
             char buff[1024];
@@ -505,14 +504,14 @@ namespace ws {
                 _BodyFd = open(_cgiFile.c_str() , O_RDONLY);
                 _Headers += "Content-Length: " + To_String(getContentLength(_BodyFd)) + "\r\n\r\n";
                 if (write(_req.getSockFd(), _Headers.c_str(), _Headers.size()) < 0)
-                    throw std::runtime_error("write error");
+                    throw std::runtime_error("write error 2");
                 close(_cgiPip);
                 _cgiPip = -1;
                 _HeadersSent = true;
+            } else {
+                if (write(_cgiTmpFile, buff, readret) < 0)
+                    throw std::runtime_error("write error 3");
             }
-            if (write(_cgiTmpFile, buff, readret) < 0)
-                throw std::runtime_error("write error");
-
         }
 
 
