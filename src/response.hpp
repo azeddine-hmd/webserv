@@ -35,6 +35,7 @@ namespace ws {
         int             _cgiPip;
         std::string     _cgiFile;
         int             _cgiTmpFile;
+        pid_t           _cgiPid;
 
         Response();
     public:
@@ -430,6 +431,7 @@ namespace ws {
             std::cout << "executing cgi ..." << std::endl;
             cgi CGI(_req, FilePath, _Location.cgiPath);
             int fd = CGI.execute();
+            _cgiPid = CGI.getCgiPid();
             std::cout << "cgi done ... " << std::endl;
             if (fd == -1)
                 return SendError(500);
@@ -505,6 +507,7 @@ namespace ws {
                 _Headers += "Content-Length: " + To_String(getContentLength(_BodyFd)) + "\r\n\r\n";
                 if (write(_req.getSockFd(), _Headers.c_str(), _Headers.size()) < 0)
                     throw std::runtime_error("write error 2");
+                waitpid(_cgiPid, NULL, 0);
                 close(_cgiPip);
                 _cgiPip = -1;
                 _HeadersSent = true;

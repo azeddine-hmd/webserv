@@ -23,12 +23,15 @@ namespace ws {
         String      _Method;
         Request    &_Data;
 
+        pid_t       _cgiPid;
+
         // cgi();
     public:
 
         cgi(Request &ReqData, String FilePath, String cgiBin) : _Data(ReqData) {
             std::vector<std::string> Path = split(FilePath, "?");
 
+            _cgiPid = -1;
             this->_ScriptPath = Path[0];
             if (Path.size() > 1)
                 this->_Query += Path[1];
@@ -106,9 +109,15 @@ namespace ws {
                     execWithGET(args, fd);
                 else if (this->_Method == "POST")
                     execWithPOST(args, fd);
+            } else {
+                _cgiPid = pid;
             }
             close(fd[1]);
             return (fd[0]);
+        }
+
+        pid_t   getCgiPid() {
+            return _cgiPid;
         }
     };
 }
