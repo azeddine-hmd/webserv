@@ -522,25 +522,8 @@ namespace ws {
             }
         }
 
-        void addSessionCookie(std::string& headers) {
-            std::string sessionKeyValue("sessionid=" + generateUUID());
-            headers += "Set-Cookie: " + sessionKeyValue + "\r\n";
-        }
-
         void interceptResponseHeaders(std::string& headers) {
-            std::string requestCookie = _req.getHeader("Cookie");
-            if (!requestCookie.empty()) {
-                // found cookies !
-                std::string cookieKey = split(requestCookie, "=").front();
-                // add session cookie if doesn't exit already
-                if (cookieKey != "sessionid") {
-                    addSessionCookie(headers);
-                }
-            } else {
-                // empty cookies !
-                // set session cookie if it's his first request
-                addSessionCookie(headers);
-            }
+            // add more headers
         }
 
     public:
