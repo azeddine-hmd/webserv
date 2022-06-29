@@ -1,6 +1,7 @@
 #pragma once
 
 #include <sys/time.h>
+#include <queue>
 #include "config/config.hpp"
 #include "server.hpp"
 #include "response.hpp"
@@ -9,22 +10,23 @@
 namespace ws {
 
     class Application {
-        Config*             mConfig;
-        std::vector<Server> mServers;
+        Config*             _Config;
+        std::vector<Server> _Servers;
         static int const    MAX_SOCKET_FD = 1024;
+        size_t              _TotalSockFds;
 
         Application( Application const& other);
         Application& operator=( Application const& rhs );
     public:
-        Application(): mConfig(NULL) {
-
+        Application(): _Config(NULL) {
+            _TotalSockFds = 0;
         }
 
         ~Application() {
-            delete mConfig;
+            delete _Config;
             // stop all server when quitting
-            for (size_t i = 0; i < mServers.size(); i++) {
-                mServers[i].stop();
+            for (size_t i = 0; i < _Servers.size(); i++) {
+                _Servers[i].stop();
             }
         }
 
@@ -32,8 +34,8 @@ namespace ws {
          *  Run application and initialize all servers
          */
         void run( Config* config ) {
-            mConfig = config;
-            mServers = startServers(config->serverBlocks);
+            _Config = config;
+            _Servers = startServers(config->serverBlocks);
             std::cout << "===[Application running...]===" << std::endl;
             startEngine();
         }
@@ -96,6 +98,7 @@ namespace ws {
                         } catch (std::exception& e) {
                             std::cout << e.what() << std::endl;
                             close(response.getSockFd());
+                            _TotalSockFds--;
                             FD_CLR(response.getSockFd(), &master_write);
                             responses.erase(responses.begin() + i);
                             i--;
@@ -110,6 +113,7 @@ namespace ws {
                                 FD_SET(response.getSockFd(), &master_read);
                             } else {
                                 close(response.getSockFd());
+                                _TotalSockFds--;
                             }
                             responses.erase(responses.begin() + i);
                             i--;
@@ -119,13 +123,16 @@ namespace ws {
                 }
 
                 // new connection
-                for (size_t i = 0; i < mServers.size(); i++) {
-                    Server& server = mServers[i];
+                for (size_t i = 0; i < _Servers.size(); i++) {
+                    Server& server = _Servers[i];
 
                     if ( FD_ISSET(server.getSocketFD(), &copy_read)) {
+                        if (_TotalSockFds > 1024)
+                            continue;
                         int new_socket = accept(server.getSocketFD(), (sockaddr *)(server.getAddress()), server.getAddrlen());
-                        fcntl(new_socket, F_SETFL, O_NONBLOCK); //TODO: maybe useless ?
-                        if ( new_socket > 0 ) {
+                        _TotalSockFds++;
+                        fcntl(new_socket, F_SETFL, O_NONBLOCK);
+                        if (new_socket > 0) {
                             std::string host = server.getServerBlock().host;
                             uint16_t    port = server.getServerBlock().port;
                             requests.push_back(Request(new_socket, host, port));
@@ -168,8 +175,8 @@ namespace ws {
 
         Server& findServer( std::string const& hostAttribute , std::string host, uint16_t port ) {
             // search by server_name:port
-            for (size_t i = 0; i < mServers.size(); i++) {
-                Server& server = mServers[i];
+            for (size_t i = 0; i < _Servers.size(); i++) {
+                Server& server = _Servers[i];
                 for (size_t j = 0; j < server.getServerBlock().hosts.size(); j++) {
                     std::string& serverHost = server.getServerBlock().hosts[j];
                     if (serverHost == hostAttribute) {
@@ -179,8 +186,8 @@ namespace ws {
             }
 
             // search by address:port
-            for (size_t i = 0; i < mServers.size(); i++) {
-                Server& server = mServers[i];
+            for (size_t i = 0; i < _Servers.size(); i++) {
+                Server& server = _Servers[i];
                 if (server.getServerBlock().host == host && server.getServerBlock().port == port)
                     return server;
             }
@@ -191,8 +198,8 @@ namespace ws {
         void initServersSockets(fd_set *master_read, fd_set *master_write) const {
             FD_ZERO(master_read);
             FD_ZERO(master_write);
-            for (size_t i = 0; i < mServers.size(); i++) {
-                FD_SET(mServers[i].getSocketFD(), master_read);
+            for (size_t i = 0; i < _Servers.size(); i++) {
+                FD_SET(_Servers[i].getSocketFD(), master_read);
             }
         }
 

@@ -189,7 +189,7 @@ namespace ws {
                 }
                 _Headers += "\r\n";
             }
-            _Headers += "Content-Type: text/html;charset=UTF-8\r\n";
+            _Headers += "Content-Type: text/html; charset=UTF-8\r\n";
             _Headers += "Content-Length: " + To_String(getContentLength(_BodyFd)) + "\r\n";
             if (_req.getHeader("Connection") == "keep-alive")
                 _Headers += "Connection: " + _req.getHeader("Connection") + "\r\n";
@@ -258,13 +258,13 @@ namespace ws {
             if (Path[Path.length() - 1] != '/')
                 Path += "/";
             Path += _Location.index;
-            int fd = open(Path.c_str(), O_RDONLY);
-            if (fd > 0)
-            {
+
+            if (access(Path.c_str(), F_OK) == 0) {
                 SendFile(Path);
-                return (true);
+                return true;
             }
-            return (false);
+
+            return false;
         }
 
         void SendFile(std::string FilePath) {
@@ -296,7 +296,7 @@ namespace ws {
                 SendError(403);
             else {
                 _Headers += "HTTP/1.1 200 OK\r\nDate: " + GetTime();
-                _Headers += "Content-Type: text/html;charset=UTF-8\r\n";
+                _Headers += "Content-Type: text/html; charset=UTF-8\r\n";
                 _Headers += "Content-Length: " + To_String(buffer.length()) + "\r\n";
                 interceptResponseHeaders(_Headers);
                 _Headers += "\r\n";
@@ -485,6 +485,8 @@ namespace ws {
                 throw std::runtime_error("error while writing to client");
             _cgiFile = "/tmp/cgiFile" + GetTime();
             _cgiTmpFile = open(_cgiFile.c_str(), O_CREAT | O_WRONLY | O_TRUNC, 0666);
+            if (_cgiTmpFile)
+                throw std::runtime_error("open(): failed to create tmp file");
             _cgiPip = fd;
         }
 
@@ -539,6 +541,8 @@ namespace ws {
                 _Headers.clear();
                 close(_cgiTmpFile);
                 _BodyFd = open(_cgiFile.c_str() , O_RDONLY);
+                if (_BodyFd < 0)
+                    throw std::runtime_error("open(): failed to open tmp file");
                 _Headers += "Content-Length: " + To_String(getContentLength(_BodyFd)) + "\r\n\r\n";
                 if (write(_req.getSockFd(), _Headers.c_str(), _Headers.size()) < 0)
                     throw std::runtime_error("write error 2");
