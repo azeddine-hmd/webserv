@@ -258,12 +258,10 @@ namespace ws {
             if (Path[Path.length() - 1] != '/')
                 Path += "/";
             Path += _Location.index;
-
-            if (access(Path.c_str(), F_OK) == 0) {
+            if (isFileReadable(Path)) {
                 SendFile(Path);
                 return true;
             }
-
             return false;
         }
 
@@ -485,7 +483,7 @@ namespace ws {
                 throw std::runtime_error("error while writing to client");
             _cgiFile = "/tmp/cgiFile" + GetTime();
             _cgiTmpFile = open(_cgiFile.c_str(), O_CREAT | O_WRONLY | O_TRUNC, 0666);
-            if (_cgiTmpFile)
+            if (_cgiTmpFile < 0)
                 throw std::runtime_error("open(): failed to create tmp file");
             _cgiPip = fd;
         }

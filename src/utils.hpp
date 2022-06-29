@@ -82,4 +82,11 @@ namespace ws {
         std::cout << ret << std::endl;
         return ret;
     }
+
+    bool isFileReadable(std::string path) {
+        if (access(path.c_str(), F_OK | R_OK) == 0)
+            return true;
+        return false;
+    }
+
 }

@@ -676,7 +676,7 @@ namespace ws {
                 errorPair = std::make_pair(errorNbr, defaultPath);
             } else {
                 errorPair = std::make_pair(errorNbr, (*iter).second.front());
-                if (access((*iter).second.front().c_str(), F_OK) != 0) {
+                if (!isFileReadable(errorPair.second)) {
                     throw ParsingException(formatMessage(" error_page_%d: bad path `%s`", errorNbr, (*iter).second.front().c_str()));
                 }
             }
@@ -709,7 +709,7 @@ namespace ws {
                 root = defaults::ROOT;
             } else {
                 root = (*iter).second.front();
-                if (access((*iter).second.front().c_str(), F_OK) != 0) {
+                if (!isFileReadable(root)) {
                     throw ParsingException(formatMessage("root: bad path `%s`", (*iter).second.front().c_str()));
                 }
             }
@@ -725,7 +725,7 @@ namespace ws {
                 uploadStore = defaults::UPLOAD_STORE;
             } else {
                 uploadStore = (*iter).second.front();
-                if (access((*iter).second.front().c_str(), F_OK) != 0) {
+                if (!isFileReadable(uploadStore)) {
                     throw ParsingException(formatMessage("upload_store: bad path `%s`", (*iter).second.front().c_str()));
                 }
             }
@@ -741,7 +741,7 @@ namespace ws {
                 cgiPath = "";
             } else {
                 cgiPath = (*iter).second.front();
-                if (access((*iter).second.front().c_str(), F_OK) != 0) {
+                if (!isFileReadable(cgiPath)) {
                     throw ParsingException(formatMessage("cgi_path: bad path `%s`", (*iter).second.front().c_str()));
                 }
             }
