@@ -345,10 +345,19 @@ namespace ws {
 				return SendError(StatusCode::notAcceptable);
 			}
 
-            if (_Location.uploadStore.back() == '/')
-                _Location.uploadStore.pop_back();
-            std::string cmd = "mv " + _req.getBodyFile().name + ' ' + _Location.uploadStore + "/" + FileName;
-            std::cout << "uploading to: " << _Location.uploadStore + "/" + FileName << std::endl;
+
+            std::string targetUpload;
+            if (_Location.uploadStore.empty()) {
+                if (_Location.root.back() == '/')
+                    _Location.root.pop_back();
+                targetUpload = _Location.root + "/" + FileName;
+            } else {
+                if (_Location.uploadStore.back() == '/')
+                    _Location.uploadStore.pop_back();
+                targetUpload = _Location.uploadStore + "/" + FileName;
+            }
+            std::cout << "uploading to: " << targetUpload << std::endl;
+            std::string cmd = "mv " + _req.getBodyFile().name + ' ' + targetUpload;
             system(cmd.c_str());
             _Headers += "HTTP/1.1 201 CREATED\r\nDate: " + GetTime();
             if (_req.getHeader("Connection") == "keep-alive")
