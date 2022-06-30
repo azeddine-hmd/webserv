@@ -10,16 +10,19 @@
 #include <fcntl.h>
 #include "utils.hpp"
 
-#define BUFFER_SIZE 1024
-
-std::string getNextLine(std::string& buffer);
-
 struct BodyFile
 {
 	public:
 		int 		fd;
 		std::string name;
 };
+
+// #include "chunkedDecoder.hpp"
+
+#define BUFFER_SIZE 1024
+
+// std::string getNextLine(std::string& buffer);
+
 
 namespace ws {
 
@@ -34,14 +37,19 @@ namespace ws {
         size_t                              _targetSize;
         std::string                         _Host;
         uint16_t                            _Port;
+        bool                                _Chunked; // true if chunked encoding is used
+        int                                 _ChunkSize; // size of the current chunk
 
     public:
         Request( int fd, std::string host, uint16_t port ): _Host(host), _Port(port) {
             _SockFd = fd;
             _HeaderDone = false;
             _RequestDone = false;
+            _Chunked = false;
             _BodyBuffer = "";
             _BodyFile.fd = -1;
+            _ChunkSize = -1;
+            _bodySize = 0;
         }
 
         ~Request() {
@@ -69,15 +77,53 @@ namespace ws {
 			return 0;
 		}
 
+        void ChunkedDecode()
+        {
+            int delimPos;
+            if(_ChunkSize > 0 && (int)_BodyBuffer.size() < _ChunkSize + 2)
+            {
+                return;
+            }
+            while(((delimPos = _BodyBuffer.find("\r\n")) != -1 && _ChunkSize == -1) || _ChunkSize > 0)
+            {
+                if(_ChunkSize == -1)
+                {
+                    
+                    _ChunkSize = hexToDec(_BodyBuffer.substr(0,delimPos));
+                    _bodySize += _ChunkSize;
+                    _BodyBuffer.erase(0, delimPos + 2);
+                    if(_ChunkSize == 0)
+                    {
+                        _RequestDone = true;
+                        _Headers["Content-Length"] = std::to_string(_bodySize);
+                        _BodyBuffer.erase(0, 2); 
+                        return;
+                    }
+                }
+                else
+                {
+                    if((int)_BodyBuffer.size() >= _ChunkSize + 2)
+                    {
+                        write(_BodyFile.fd, _BodyBuffer.c_str(), _ChunkSize);
+                        _BodyBuffer.erase(0, _ChunkSize + 2);
+                        _ChunkSize = -1;
+                    }
+                    else
+                        return;
+                }
+            }
+        }
+
         // parse the whole header part of a request
         void parseRequestHeader ( void ) {
-			char buf[BUFFER_SIZE * 10];
-			int ret = read(_SockFd, buf, BUFFER_SIZE * 10);
+			char buf[BUFFER_SIZE];
+			int ret = read(_SockFd, buf, BUFFER_SIZE);
 			if (ret <= 0) 
                 	throw std::runtime_error("error while reading");
-			_BodyBuffer = std::string(buf, ret);
+			_BodyBuffer += std::string(buf, ret);
+            if (_BodyBuffer.find("\r\n\r\n") == std::string::npos)
+                return;
 			parseFirstLine();
-			
 			while(parseParam() != -1);
 			_HeaderDone = true;
 			if(_Headers.find("Content-Length") != _Headers.end())
@@ -85,20 +131,30 @@ namespace ws {
 				std::istringstream iss(_Headers["Content-Length"]);
 				iss >> _targetSize;
 			}
+            else if(_Headers.find("Transfer-Encoding") != _Headers.end())
+            {
+                _Chunked = true;
+            }
 			else
 			{
 				_RequestDone = true;
 				return;
 			}
 			CreateFile();
-			write(_BodyFile.fd, _BodyBuffer.c_str(), _BodyBuffer.size());
-			_bodySize = _BodyBuffer.size();
-			if(_bodySize == _targetSize)
-			{
-				_RequestDone = true;
-				std::cout << "done" << std::endl;
-				return;
-			}
+            if(_Chunked)
+                ChunkedDecode();
+            else
+            {
+			    write(_BodyFile.fd, _BodyBuffer.c_str(), _BodyBuffer.size());
+			    _bodySize = _BodyBuffer.size();
+                _BodyBuffer = "";
+                if(_bodySize == _targetSize)
+                {
+                    _RequestDone = true;
+                    std::cout << "done" << std::endl;
+                    return;
+                }
+            }
 		}
 
         // get a parameter by key
@@ -123,7 +179,6 @@ namespace ws {
         void CreateFile() {
             int random = (int) time(nullptr);
             std::string n = std::string("/tmp/USER_") + std::to_string(random);
-            // std::string n = "www/uploads/upload_file"; 
             _BodyFile.fd = open(n.c_str(), O_CREAT | O_WRONLY, 0644);
             _BodyFile.name = n;
         }
@@ -135,16 +190,22 @@ namespace ws {
 				int ret = read(_SockFd, buf, BUFFER_SIZE);
 				if (ret <= 0) 
                 	throw std::runtime_error("error while reading");
-				std::string buffer = std::string(buf, ret);
-				_bodySize += ret;
-				if(ret > 0)
-					write(_BodyFile.fd, buf, ret);
-				if(_bodySize == _targetSize)
-				{
-					_RequestDone = true;
-					std::cout << "done" << std::endl;
-					return;
-				}
+                if(_Chunked)
+                {
+                    _BodyBuffer += std::string(buf, ret);
+                    ChunkedDecode();
+                }
+                else
+                {
+                    _bodySize += ret;
+                    write(_BodyFile.fd, buf, ret);
+                    if(_bodySize == _targetSize)
+                    {
+                        _RequestDone = true;
+                        std::cout << "done" << std::endl;
+                        return;
+                    }
+                }
 			}
 			else
 				parseRequestHeader();
@@ -159,6 +220,8 @@ namespace ws {
             _BodyBuffer.clear();
             _bodySize = 0;
             _targetSize = 0;
+            _ChunkSize = -1;
+            _Chunked = false;
         }
 
         std::string getHost() const {

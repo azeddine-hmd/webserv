@@ -76,7 +76,9 @@ namespace ws {
 
     std::string getNextLine(std::string& buffer)
     {
-        int delimPos = buffer.find("\r\n");
+        int delimPos;
+        if((delimPos = buffer.find("\r\n")) == -1)
+            return buffer;
         std::string ret = buffer.substr(0, delimPos);
         buffer = buffer.substr(delimPos + 2, buffer.size() - 1);
         std::cout << ret << std::endl;
@@ -89,4 +91,19 @@ namespace ws {
         return false;
     }
 
+    int hexToDec(std::string num)
+    {
+        std::string set     = "0123456789abcdef";
+        int         ret     = 0;
+        int         pow     = 1;
+        int         index   = num.size() - 1;
+        // num = num.upper();
+        while(index >= 0)
+        {
+            ret += set.find(num[index--]) * pow;
+            pow *= 16;
+        }
+
+        return ret;
+    }
 }

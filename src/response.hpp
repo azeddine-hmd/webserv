@@ -176,6 +176,7 @@ namespace ws {
        void    SendError(int ErrCode) {
             std::string FilePath =  _ServerBlock->errorPages.find(ErrCode)->second;
 
+            std::cout << "Send error called " << ErrCode << std::endl;
             _BodyFd = open(FilePath.c_str(), O_RDONLY);
             _Headers += "HTTP/1.1 " + To_String(ErrCode) + " " + StatusCode::reasonPhrase(ErrCode) + "\r\n";
             _Headers += "Date: " + GetTime();
@@ -200,6 +201,13 @@ namespace ws {
             if (write(_req.getSockFd(), _Headers.c_str(), _Headers.length()) < 0)
                 throw std::runtime_error("error while writing to client");
             _HeadersSent = true;
+            if(_req.getHeader("Method") == "HEAD")
+            {
+                close(_BodyFd);
+                _BodyFd = -1;
+                _Done = true;
+                return;
+            }
        }
 
         std::string getParent(std::string location)
@@ -260,7 +268,7 @@ namespace ws {
             Path += _Location.index;
             if (isFileReadable(Path)) {
                 SendFile(Path);
-                return true;
+                return (true);
             }
             return false;
         }
@@ -285,6 +293,13 @@ namespace ws {
             if (write(_req.getSockFd(), _Headers.c_str(), _Headers.length()) < 0)
                 throw std::runtime_error("error while writing to client");
             _HeadersSent = true;
+            if(_req.getHeader("Method") == "HEAD")
+            {
+                close(_BodyFd);
+                _BodyFd = -1;
+                _Done = true;
+                return;
+            }
         }
 
         void    sendAutoIndex(std::string FilePath) {
@@ -438,12 +453,21 @@ namespace ws {
 
         int     checkMethod(std::string Method) {
             std::vector<std::string> implMethods;
+
             implMethods.push_back("GET");
             implMethods.push_back("POST");
             implMethods.push_back("DELETE");
+            implMethods.push_back("HEAD");
+            implMethods.push_back("PUT");
 
+            std::cout << "in check method : ";
+            std::cout << _req.getHeader("Method") << std::endl;
             if (std::find(implMethods.begin(),implMethods.end(), Method) == implMethods.end())
+            {
+                std::cout << "not implemented !" << std::endl;
                 return (501);
+            }
+            std::cout << "implemented !" << std::endl;
             if (std::find(
                 _Location.allowedMethods.begin(),
                 _Location.allowedMethods.end(),
@@ -489,15 +513,16 @@ namespace ws {
         }
 
         bool     checkContentLen( void ) {
-            size_t mByte = 1048576;
-            size_t maxLen = _ServerBlock->maxBodySize * mByte;
+            // size_t mByte = 1048576;
+            // size_t maxLen = _ServerBlock->maxBodySize; 
             size_t ReqLen = To_Int(_req.getHeader("Content-Length"));
-            return ReqLen < maxLen;
+            return ReqLen <= _ServerBlock->maxBodySize;
         }
 
         void    sendHeaders() {
             std::string Method = _req.getHeader("Method");
             std::string Path = _req.getHeader("Path");
+
             int         ErrCode;
 
             if (_ServerBlock->maxBodySize != 0 && !checkContentLen())
@@ -513,9 +538,9 @@ namespace ws {
             if ((_Location.path == ".php" || _Location.path == ".py") &&
                     (Method == "GET" || Method == "POST"))
                 return SendWithCGI(FilePath);
-            if (Method == "GET")
+            if (Method == "GET" || Method == "HEAD")
                 return SendWithGet(FilePath);
-            if (Method == "POST")
+            if (Method == "POST" || Method == "PUT")
                 return SendWithPost(FilePath);
             if (Method == "DELETE")
                 return SendWithDelete(FilePath);
