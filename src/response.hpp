@@ -44,7 +44,6 @@ namespace ws {
 
         Response( Request& request, ServerBlock& serverBlock ): _req(request), _ServerBlock(&serverBlock) {
             _Headers = std::string();
-            // _Location();
             _HeadersSent = false;
             _Done = false;
             _BodyFd = -1;
@@ -87,14 +86,6 @@ namespace ws {
             return (convert.str());
         }
 
-        // int  getErrorPageFd(std::string path ) {
-        //     int fd;
-
-        //     if (fd = open(path.c_str(), O_RDONLY) < 0);
-        //         std::cout << "open: " << strerror(errno) << std::endl;
-        //     return fd;
-        // }
-
         void sendBody() {
             char buffer[1024];
             int readRet = read(_BodyFd, buffer, 1024);
@@ -112,8 +103,8 @@ namespace ws {
         int FindLocation( std::string Location ) {
             for (size_t i = 0 ; i < _ServerBlock->locations.size(); i++)
             {
-                std::cout << "config: "<< _ServerBlock->locations[i].path << " | ";
-                std::cout << "loc: " << Location << std::endl;
+//                std::cout << "config: "<< _ServerBlock->locations[i].path << " | ";
+//                std::cout << "loc: " << Location << std::endl;
                 if (_ServerBlock->locations[i].path == Location)
                     return i;
             }
@@ -124,7 +115,6 @@ namespace ws {
             int found = FindLocation("/");
             if (found != -1)
             {
-                // std::cout << "found root location" << std::endl;
                 _Location = _ServerBlock->locations[found];
                 return true;
             }
@@ -204,7 +194,6 @@ namespace ws {
             _Headers += "Content-Length: " + To_String(getContentLength(_BodyFd)) + "\r\n";
             if (_req.getHeader("Connection") == "keep-alive")
                 _Headers += "Connection: " + _req.getHeader("Connection") + "\r\n";
-           interceptResponseHeaders(_Headers);
             _Headers += "\r\n";
 
 
@@ -298,7 +287,6 @@ namespace ws {
 
             if (_req.getHeader("Connection") == "keep-alive")
                 _Headers += "Connection: " + _req.getHeader("Connection") + "\r\n";
-            interceptResponseHeaders(_Headers);
             _Headers += "\r\n";
             if (write(_req.getSockFd(), _Headers.c_str(), _Headers.length()) < 0)
                 throw std::runtime_error("error while writing to client");
@@ -321,7 +309,6 @@ namespace ws {
                 _Headers += "HTTP/1.1 200 OK\r\nDate: " + GetTime();
                 _Headers += "Content-Type: text/html; charset=UTF-8\r\n";
                 _Headers += "Content-Length: " + To_String(buffer.length()) + "\r\n";
-                interceptResponseHeaders(_Headers);
                 _Headers += "\r\n";
                 _Headers += buffer;
                 write(_req.getSockFd(), _Headers.c_str(), _Headers.length());
@@ -382,7 +369,6 @@ namespace ws {
             _Headers += "HTTP/1.1 201 CREATED\r\nDate: " + GetTime();
             if (_req.getHeader("Connection") == "keep-alive")
                 _Headers += "Connection: " + _req.getHeader("Connection") + "\r\n";
-            interceptResponseHeaders(_Headers);
             _Headers += "Content-Length: 0\r\n";
             _Headers += "\r\n";
             if (write(_req.getSockFd(), _Headers.c_str(), _Headers.length()) < 0)
@@ -414,7 +400,6 @@ namespace ws {
                     _Headers += "HTTP/1.1 204 No Content\r\nDate: " + GetTime();
                     if (_req.getHeader("Connection") == "keep-alive")
                         _Headers += "Connection: " + _req.getHeader("Connection") + "\r\n";
-                    interceptResponseHeaders(_Headers);
                     _Headers += "\r\n";
                     if (write(_req.getSockFd(), _Headers.c_str(), _Headers.length()) < 0)
                         throw std::runtime_error("error while writing to client");
@@ -451,7 +436,6 @@ namespace ws {
             _Headers += "Location: " + location + "\r\n";
             if (_req.getHeader("Connection") == "keep-alive")
                 _Headers += "Connection: " + _req.getHeader("Connection") + "\r\n";
-            interceptResponseHeaders(_Headers);
             _Headers += "\r\n";
             write(_req.getSockFd(), _Headers.c_str(), _Headers.length());
             _HeadersSent = true;
@@ -539,10 +523,9 @@ namespace ws {
                 return SendWithDelete(FilePath);
         }
 
-        void readingPipCgi() {
+        void readingFromCgiPipe() {
             char buff[1024];
             int readret = read(_cgiPip, buff, 1024);
-            // reading from pipe protection
             if (readret < 0) {
                 _Headers.clear();
                 SendError(500);
@@ -570,7 +553,6 @@ namespace ws {
                 }
                 tmpHeaders += "Date: " + GetTime();
                 _Headers = tmpHeaders + _Headers;
-                interceptResponseHeaders(_Headers);
                 if (write(_req.getSockFd(), _Headers.c_str(), _Headers.find("\r\n\r\n") + 2) < 0)
                     throw std::runtime_error("error while writing to client");
                 std::cout << "{{{" << _Headers << "}}}" << std::endl;
@@ -587,7 +569,7 @@ namespace ws {
                     SendError(500);
                     throw CgiProcessTerminated(_cgiPip);
                 }
-                // writing remaining data in _Headers into cgi tmp body file
+                // writing remaining data in _Headers into tmp file
                 if (!_Headers.empty()) {
                     if (write(_cgiTmpFile, _Headers.c_str(), _Headers.size()) < 0) {
                         _Headers.clear();
@@ -614,6 +596,7 @@ namespace ws {
                 _HeadersSent = true;
                 throw CgiProcessTerminated(_cgiPip);
             } else {
+            // send body chunks to tmp file
                 if (write(_cgiTmpFile, buff, readret) < 0) {
                     _Headers.clear();
                     SendError(500);
@@ -622,12 +605,7 @@ namespace ws {
             }
         }
 
-        void interceptResponseHeaders(std::string& headers) {
-            // add more headers
-            (void)headers;
-        }
-
-        void supervise() {
+        void supervising() {
             int secElapsed = getCgiTimeoutDuration();
             if (secElapsed > 5) {
                 throw std::runtime_error("cgi timeout reached");
@@ -636,19 +614,26 @@ namespace ws {
 
     public:
 
+        typedef enum cgi_state {
+            CGI_OFF,
+            CGI_PIPE_READY,
+            CGI_SUPERVISE
+        } CgiState_t;
+
         /*
          *  main entry.
          *  engine will invoke this everytime socket is ready for writing
          */
-        void sendChunk(bool pipeReady = false) {
+        void sendChunk(CgiState_t cgi) {
             if (_cgiPip > -1) {
-                if (pipeReady)
-                    readingPipCgi();
-                else
-                    supervise();
+                if (cgi == CGI_PIPE_READY) {
+                    std::cout << "reading from pipe" << std::endl;
+                    readingFromCgiPipe();
+                } else {
+                    supervising();
+                }
             } else if (!_HeadersSent) {
                 sendHeaders();
-                // std::cout << _Headers;
             } else if (_BodyFd > -1) {
                 sendBody();
             } else {
@@ -746,7 +731,6 @@ namespace ws {
         int getCgiTimeoutDuration() {
             struct timeval end;
             gettimeofday(&end, NULL);
-
             return end.tv_sec - _CgiExecDuration.tv_sec;
         }
 
@@ -767,6 +751,7 @@ namespace ws {
             }
 
         };
+
     };
 
 } // namespace ws

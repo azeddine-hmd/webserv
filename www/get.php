@@ -26,6 +26,9 @@
         else
             echo $name2;
     }
+    while (1) {
+
+    }
 ?>
 </body>
 </html>

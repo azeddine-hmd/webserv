@@ -101,10 +101,19 @@ namespace ws {
                     Response &response = responses[i];
                     if (FD_ISSET(response.getSockFd(), &copy_write)) {
                         try {
-                            if ( response.isCgiActive() && FD_ISSET(response.getCgiFd(), &copy_write) )
-                                response.sendChunk(true);
-                            else
-                                response.sendChunk();
+
+                            if ( response.isCgiActive() ) {
+                                if ( FD_ISSET(response.getCgiFd(), &copy_read) ) {
+                                    std::cout << "cgi pipe: " << response.getCgiFd() << std::endl;
+                                    response.sendChunk(Response::CGI_PIPE_READY);
+                                } else {
+                                    response.sendChunk(Response::CGI_SUPERVISE);
+                                }
+                            }
+                            else {
+                                response.sendChunk(Response::CGI_OFF);
+                            }
+
                         } catch (Response::CgiProcessStarted &e) {
                             std::cout << e.what() << std::endl;
                             response.startCgiTimeout();
@@ -121,6 +130,7 @@ namespace ws {
                             _TotalReadFds--;
                             response.stopCgi();
                         } catch (std::exception &e) {
+                            std::cout << "runtime_error caught" << std::endl;
                             std::cout << e.what() << std::endl;
                             close(response.getSockFd());
                             FD_CLR(response.getSockFd(), &master_write);
