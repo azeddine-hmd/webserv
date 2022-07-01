@@ -18,6 +18,7 @@ namespace ws {
         bool                                                autoindex;
         std::string                                         index;
         std::string                                         uploadStore;
+        size_t                                              maxBodySize;
 
         // redirection
         std::pair<int, std::string>                         redirect;

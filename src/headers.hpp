@@ -3,6 +3,7 @@
 #include <string>
 #include "StatusCode.hpp"
 #include <cstdarg>
+#include <sys/time.h>
 
 namespace ws {
 

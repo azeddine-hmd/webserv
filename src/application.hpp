@@ -1,6 +1,6 @@
 #pragma once
 
-#include <sys/time.h>
+#include <ctime>
 #include <queue>
 #include "config/config.hpp"
 #include "server.hpp"
@@ -13,13 +13,17 @@ namespace ws {
         Config*             _Config;
         std::vector<Server> _Servers;
         static int const    MAX_SOCKET_FD = 1024;
-        size_t              _TotalSockFds;
+        size_t              _TotalReadFds;
+        size_t              _TotalWriteFds;
+        std::queue<int>     _SelectReadWaitlist;
+        std::queue<int>     _SelectWriteWaitlist;
 
         Application( Application const& other);
         Application& operator=( Application const& rhs );
     public:
         Application(): _Config(NULL) {
-            _TotalSockFds = 0;
+            _TotalReadFds = 0;
+            _TotalWriteFds = 0;
         }
 
         ~Application() {
@@ -43,6 +47,7 @@ namespace ws {
         /*
          *  Runs all servers
          */
+        int running = 0;
         void startEngine() {
             std::vector<Request> requests;
             std::vector<Response> responses;
@@ -59,27 +64,32 @@ namespace ws {
                     continue;
                 }
 
+//                std::cout << "running..." << running++ << std::endl;
+
                 // handling active requests
                 for (size_t i = 0; i < requests.size(); i++) {
                     Request& req = requests[i];
-
-                    if ( FD_ISSET(req.getSockFd(), &copy_read) )
-                    {
+                    if ( FD_ISSET(req.getSockFd(), &copy_read) ) {
                         try {
                             req.readChunk();
                         } catch (std::runtime_error& e) {
                             std::cout << e.what() << std::endl;
                             close(req.getSockFd());
                             FD_CLR(req.getSockFd(), &master_read);
+                            _TotalReadFds--;
                             requests.erase(requests.begin() + i);
                             i--;
                             continue;
                         }
-
-                        if(req.getStatus())
-                        {
+                        if (req.getStatus()) {
                             FD_CLR(req.getSockFd(), &master_read);
-                            FD_SET(req.getSockFd(), &master_write);
+                            _TotalReadFds--;
+                            if (_TotalWriteFds > 1024) {
+                                _SelectWriteWaitlist.push(req.getSockFd());
+                            } else {
+                                FD_SET(req.getSockFd(), &master_write);
+                                _TotalWriteFds++;
+                            }
                             ServerBlock& serverBlock = findServer(req.getHeader("Host"), req.getHost(), req.getPort()).getServerBlock();
                             responses.push_back(Response(req, serverBlock));
                             requests.erase(requests.begin() + i);
@@ -93,58 +103,107 @@ namespace ws {
                     Response& response = responses[i];
 
                     if ( FD_ISSET(response.getSockFd(), &copy_write) ) {
+                        if ( response.isCgiActive() && !FD_ISSET(response.getCgiFd(), &copy_read) )
+                            continue;
                         try {
                             response.send();
-                        } catch (std::exception& e) {
+                        } catch (Response::CgiProcessStarted& e) {
                             std::cout << e.what() << std::endl;
-                            close(response.getSockFd());
-                            _TotalSockFds--;
-                            FD_CLR(response.getSockFd(), &master_write);
-                            responses.erase(responses.begin() + i);
-                            i--;
-                            continue;
+                            if (_TotalReadFds > 1024) {
+                                _SelectReadWaitlist.push(e.getCgiFd());
+                            } else {
+                                FD_SET(e.getCgiFd(), &master_read);
+                                _TotalReadFds++;
+                            }
+                        } catch (Response::CgiProcessTerminated& e) {
+                            std::cout << e.what() << std::endl;
+                            FD_CLR(e.getCgiFd(), &master_read);
+                            _TotalReadFds--;
+                            response.stopCgi();
+                        } catch (std::exception& e) {
+                                std::cout << e.what() << std::endl;
+                                close(response.getSockFd());
+                                FD_CLR(response.getSockFd(), &master_write);
+                                _TotalWriteFds--;
+                                responses.erase(responses.begin() + i);
+                                i--;
+                                if (response.isCgiActive()) {
+                                    FD_CLR(response.getCgiFd(), &master_read);
+                                    _TotalReadFds--;
+                                    response.stopCgi();
+                                }
+                                continue;
+                            }
                         }
                         if (response.done()) {
                             FD_CLR(response.getSockFd(), &master_write);
+                            _TotalWriteFds--;
                             if (response.getRequest().getHeader("Connection") == "keep-alive") {
                                 std::cout << "resetting connection" << std::endl;
                                 response.reset();
                                 requests.push_back(response.getRequest());
-                                FD_SET(response.getSockFd(), &master_read);
+                                if (_TotalReadFds > 1024) {
+                                    _SelectReadWaitlist.push(response.getSockFd());
+                                } else {
+                                    FD_SET(response.getSockFd(), &master_read);
+                                    _TotalReadFds++;
+                                }
                             } else {
                                 close(response.getSockFd());
-                                _TotalSockFds--;
                             }
                             responses.erase(responses.begin() + i);
                             i--;
                         }
-
                     }
-                }
 
                 // new connection
                 for (size_t i = 0; i < _Servers.size(); i++) {
                     Server& server = _Servers[i];
-
                     if ( FD_ISSET(server.getSocketFD(), &copy_read)) {
-                        if (_TotalSockFds > 1024)
-                            continue;
                         int new_socket = accept(server.getSocketFD(), (sockaddr *)(server.getAddress()), server.getAddrlen());
-                        _TotalSockFds++;
-                        fcntl(new_socket, F_SETFL, O_NONBLOCK);
                         if (new_socket > 0) {
+                            if (_TotalReadFds > 1024) {
+                                _SelectReadWaitlist.push(new_socket);
+                                continue;
+                            } else {
+                                _TotalReadFds++;
+                                FD_SET(new_socket, &master_read);
+                            }
+                            fcntl(new_socket, F_SETFL, O_NONBLOCK);
                             std::string host = server.getServerBlock().host;
                             uint16_t    port = server.getServerBlock().port;
                             requests.push_back(Request(new_socket, host, port));
-                            FD_SET(new_socket,&master_read);
                         }
-
                     }
-
                 }
 
-            } // infinity loop
 
+                /*
+                 *
+                 * Active file descriptors in waitlist into select if there's a place for them of curse
+                 *
+                 */
+
+                while (!_SelectReadWaitlist.empty()) {
+                    if (_TotalReadFds > 1024)
+                        break;
+                    int fd = _SelectReadWaitlist.front();
+                    _SelectReadWaitlist.pop();
+                    FD_SET(fd, &master_read);
+                    _TotalReadFds++;
+                }
+
+                while (!_SelectWriteWaitlist.empty()) {
+                    if (_TotalWriteFds > 1024)
+                        break;
+                    int fd = _SelectWriteWaitlist.front();
+                    _SelectWriteWaitlist.pop();
+                    FD_SET(fd, &master_write);
+                    _TotalWriteFds++;
+                }
+
+
+            } // infinity loop
         }
 
 
@@ -195,11 +254,12 @@ namespace ws {
             throw std::logic_error(formatMessage("no server host `%s` were found with `%s:%d`", hostAttribute.c_str(), host.c_str(), port));
         }
 
-        void initServersSockets(fd_set *master_read, fd_set *master_write) const {
+        void initServersSockets(fd_set *master_read, fd_set *master_write) {
             FD_ZERO(master_read);
             FD_ZERO(master_write);
             for (size_t i = 0; i < _Servers.size(); i++) {
                 FD_SET(_Servers[i].getSocketFD(), master_read);
+                _TotalReadFds++;
             }
         }
 

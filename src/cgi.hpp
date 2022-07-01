@@ -102,6 +102,8 @@ namespace ws {
             };
 
             pipe(fd);
+            fcntl(fd[0], F_SETFL, O_NONBLOCK);
+            fcntl(fd[1], F_SETFL, O_NONBLOCK);
             pid = fork();
             if (pid < 0)
                 return (-1);

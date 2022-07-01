@@ -36,6 +36,8 @@ namespace ws {
         std::string     _cgiFile;
         int             _cgiTmpFile;
         pid_t           _cgiPid;
+        bool            _CgiFound;
+        bool            _PipHeadersRead;
 
         Response();
     public:
@@ -50,7 +52,8 @@ namespace ws {
             _cgiFile = std::string();
             _cgiTmpFile = -1;
             _isErr = false;
-
+            _CgiFound = false;
+            _PipHeadersRead = false;
         }
 
     private:
@@ -59,14 +62,6 @@ namespace ws {
             https://www.w3.org/Protocols/rfc2616/rfc2616-sec6.html
             https://www.ibm.com/docs/en/cics-ts/5.2?topic=protocol-http-responses
         */
-
-        int To_Int(std::string stringValue)
-        {
-            std::stringstream intValue(stringValue);
-            int number = 0;
-            intValue >> number;
-            return number;
-        }
 
         std::string     GetTime( void ) {
             time_t rawtime;
@@ -135,13 +130,13 @@ namespace ws {
             return false;
         }
 
-        bool    GetCGILocation(std::string Path) {
-            std::string CgiType = Path.find(".php") != std::string::npos ? ".php" : ".py";
-            std::cout << "CGI Type = " << CgiType << std::endl;
-            int found = FindLocation(CgiType);
+        bool    GetCGILocation(std::string cgiType) {
+            std::cout << "CGI Type = " << cgiType << std::endl;
+            int found = FindLocation(cgiType);
 
             if (found != -1)
             {
+                _CgiFound = true;
                 std::cout << "found CGI location" << std::endl;
                 _Location = _ServerBlock->locations[found];
                 return true;
@@ -149,12 +144,28 @@ namespace ws {
             return false;
         }
 
+        bool findCgi(std::string Path) {
+            std::vector<std::string> paths = split(Path, "/");
+            if (paths.empty())
+                return false;
+
+            std::string lastPath = paths.back();
+            size_t start = lastPath.rfind(".");
+            if (start == std::string::npos)
+                return false;
+
+            if (GetCGILocation(lastPath.substr(start, lastPath.size())))
+                return true;
+
+            return false;
+        }
+
         bool    ExtractLocation( std::string Path )
         {
             int found = -1;
-            if (Path.find(".php") != std::string::npos || Path.find(".py") != std::string::npos)
-                if (GetCGILocation(Path))
-                    return true;
+
+            if (findCgi(Path))
+                return true;
             std::vector<std::string> Locations = split(Path, "/");
             if (Locations.size() > 0) {
                 std::string ToFind = "/" + Locations[0];
@@ -354,9 +365,6 @@ namespace ws {
             std::string FileName = Paths[Paths.size() -1];
 
 			std::string path = _req.getHeader("Path");
-			if (path.back() == '/') {
-				return SendError(StatusCode::notAcceptable);
-			}
 
 
             std::string targetUpload;
@@ -422,12 +430,13 @@ namespace ws {
         std::string     GetFilePath(std::string Path) {
             std::string Root = _Location.root;
 
-            if (_Location.path == ".py" || _Location.path == ".php")
-                return Root + Path;
-            std::string NewPath = Path.substr(Path.find(_Location.path) + _Location.path.length()
-                                        , Path.length());
             if (Root[Root.length() - 1] != '/')
                 Root += "/";
+            if (_CgiFound) {
+                return Root + split(Path, "/").back();
+            }
+            std::string NewPath = Path.substr(Path.find(_Location.path) + _Location.path.length()
+                                        , Path.length());
             if (NewPath[0] == '/')
                 NewPath.erase(0,1);
             return Root + NewPath;
@@ -480,43 +489,26 @@ namespace ws {
         void    SendWithCGI(std::string FilePath) {
             std::cout << "executing cgi ..." << std::endl;
             cgi CGI(_req, FilePath, _Location.cgiPath);
-            int fd = CGI.execute();
+            _cgiPip = CGI.execute();
             _cgiPid = CGI.getCgiPid();
-            std::cout << "cgi done ... " << std::endl;
-            if (fd == -1)
+            std::cout << "cgi started ... " << std::endl;
+            if (_cgiPip == -1)
                 return SendError(500);
-            char buffer;
-            while (_Headers.find("\r\n\r\n") == std::string::npos)
-            {
-                int ret = read(fd, &buffer, 1);
-                if (ret == 0)
-                    break;
-                if (ret < 0)
-                    throw std::runtime_error("error while reading inside response");
-                _Headers += buffer;
-            }
-            std::cout << "{{{" << _Headers << "}}}" << std::endl;
-           if (_Headers.find("Status: 302") != std::string::npos)
-                _Headers = "HTTP/1.1 302 Found\r\nDate: " + GetTime() + _Headers;
-            else if (_Headers.find("Status: 301") != std::string::npos)
-                _Headers = "HTTP/1.1 301 Moved Permanetly\r\nDate: " + GetTime() + _Headers;
-            else
-                _Headers = "HTTP/1.1 200 OK\r\nDate: " + GetTime() + _Headers;
-            interceptResponseHeaders(_Headers);
-            if (write(_req.getSockFd(), _Headers.c_str(), _Headers.find("\r\n\r\n") + 2) < 0)
-                throw std::runtime_error("error while writing to client");
-            _cgiFile = "/tmp/cgiFile" + GetTime();
-            _cgiTmpFile = open(_cgiFile.c_str(), O_CREAT | O_WRONLY | O_TRUNC, 0666);
-            if (_cgiTmpFile < 0)
-                throw std::runtime_error("open(): failed to create tmp file");
-            _cgiPip = fd;
+            throw CgiProcessStarted(_cgiPip);
         }
 
-        bool     checkContentLen( void ) {
-            // size_t mByte = 1048576;
-            // size_t maxLen = _ServerBlock->maxBodySize; 
-            size_t ReqLen = To_Int(_req.getHeader("Content-Length"));
-            return ReqLen <= _ServerBlock->maxBodySize;
+        bool     isLessMaxBody( size_t maxBodySize ) {
+            size_t ReqLen = std::stoi(_req.getHeader("Content-Length"));
+            return ReqLen <= maxBodySize;
+        }
+
+        bool checkBodySize( size_t maxBodySize ) {
+            if (_req.getHeader("Content-Length").empty() || maxBodySize == 0)
+                return false;
+            if (!isLessMaxBody(maxBodySize)) {
+                return true;
+            }
+            return false;
         }
 
         void    sendHeaders() {
@@ -525,18 +517,19 @@ namespace ws {
 
             int         ErrCode;
 
-            if (_ServerBlock->maxBodySize != 0 && !checkContentLen())
+            if (checkBodySize(_ServerBlock->maxBodySize))
                 return SendError(413);
             if (!ExtractLocation(Path))
                 return SendError(404);
+            if (checkBodySize(_Location.maxBodySize))
+                return SendError(413);
             if ((ErrCode = checkMethod(Method)))
                 return SendError(ErrCode);
             std::string FilePath = GetFilePath(Path);
             std::cout << "built path " << FilePath << std::endl;
             if (_Location.redirect != defaults::EMPTY_REDIRECT)
                 return sendWithRedirect();
-            if ((_Location.path == ".php" || _Location.path == ".py") &&
-                    (Method == "GET" || Method == "POST"))
+            if (_CgiFound && (Method == "GET" || Method == "POST"))
                 return SendWithCGI(FilePath);
             if (Method == "GET" || Method == "HEAD")
                 return SendWithGet(FilePath);
@@ -546,36 +539,87 @@ namespace ws {
                 return SendWithDelete(FilePath);
         }
 
-        void    readingPipCgi( void ) {
-            if (_Headers.find("\r\n\r\n") + 4 < _Headers.size()) {
-                std::string BodyPart = _Headers.substr(_Headers.find("\r\n\r\n") + 4
-                , _Headers.size());
-                // std::cout << "bodyPart: " << BodyPart << std::endl;
-                if (write(_cgiTmpFile, BodyPart.c_str(), _Headers.size()) < 0)
-                    throw std::runtime_error("write error 1");
-                _Headers.clear();
-            }
+        void readingPipCgi() {
             char buff[1024];
             int readret = read(_cgiPip, buff, 1024);
-            if (readret < 0)
-                throw std::runtime_error("read error");
-            if (readret == 0)
-            {
+            // reading from pipe protection
+            if (readret < 0) {
                 _Headers.clear();
+                SendError(500);
+                throw CgiProcessTerminated(_cgiPip);
+            }
+            // reading from cgi pipe until separator were found
+            if (!_PipHeadersRead) {
+                _Headers += std::string(buff, readret);
+                size_t separatorStart;
+                if ( _Headers.find("\r\n\r\n") == std::string::npos )
+                    return;
+                std::string tmpHeaders;
+                if (_Headers.find("Status: ") != std::string::npos) {
+                    size_t start = _Headers.find("Status: ");
+                    size_t statusCode = stoi(_Headers.substr(start + 8, start + 11));
+                    if (statusCode >= 400) {
+                        _Headers.clear();
+                        SendError(statusCode);
+                        throw CgiProcessTerminated(_cgiPip);
+                    }
+                    tmpHeaders +=
+                            "HTTP/1.1 " + std::to_string(statusCode) + " " + StatusCode::reasonPhrase(statusCode) +
+                            "\r\n";
+                } else {
+                    tmpHeaders += "HTTP/1.1 200 OK\r\n";
+                }
+                tmpHeaders += "Date: " + GetTime();
+                _Headers = tmpHeaders + _Headers;
+                interceptResponseHeaders(_Headers);
+                if (write(_req.getSockFd(), _Headers.c_str(), _Headers.find("\r\n\r\n") + 2) < 0)
+                    throw std::runtime_error("error while writing to client");
+                std::cout << "{{{" << _Headers << "}}}" << std::endl;
+                _Headers.erase(0, _Headers.find("\r\n\r\n") + 4);
+                _PipHeadersRead = true;
+                return;
+            }
+            // creating tmp file if not exist
+            if (_cgiTmpFile == -1)  {
+                _cgiFile = "/tmp/cgiFile" + GetTime();
+                _cgiTmpFile = open(_cgiFile.c_str(), O_CREAT | O_WRONLY | O_TRUNC, 0666);
+                if (_cgiTmpFile < 0) {
+                    _Headers.clear();
+                    SendError(500);
+                    throw CgiProcessTerminated(_cgiPip);
+                }
+                // writing remaining data in _Headers into cgi tmp body file
+                if (!_Headers.empty()) {
+                    if (write(_cgiTmpFile, _Headers.c_str(), _Headers.size()) < 0) {
+                        _Headers.clear();
+                        SendError(500);
+                        throw CgiProcessTerminated(_cgiPip);
+                    }
+                    _Headers.clear();
+                }
+            }
+            // at this point cgi have sent everything to us!
+            if (readret == 0) {
+                std::cout << "reach the end of pipe" << std::endl;
                 close(_cgiTmpFile);
                 _BodyFd = open(_cgiFile.c_str() , O_RDONLY);
-                if (_BodyFd < 0)
-                    throw std::runtime_error("open(): failed to open tmp file");
+                if (_BodyFd < 0) {
+                    _Headers.clear();
+                    SendError(500);
+                    throw CgiProcessTerminated(_cgiPip);
+                }
                 _Headers += "Content-Length: " + To_String(getContentLength(_BodyFd)) + "\r\n\r\n";
-                if (write(_req.getSockFd(), _Headers.c_str(), _Headers.size()) < 0)
-                    throw std::runtime_error("write error 2");
-                waitpid(_cgiPid, NULL, 0);
-                close(_cgiPip);
-                _cgiPip = -1;
+                if (write(_req.getSockFd(), _Headers.c_str(), _Headers.size()) < 0) {
+                    throw std::runtime_error("error while writing to client");
+                }
                 _HeadersSent = true;
+                throw CgiProcessTerminated(_cgiPip);
             } else {
-                if (write(_cgiTmpFile, buff, readret) < 0)
-                    throw std::runtime_error("write error 3");
+                if (write(_cgiTmpFile, buff, readret) < 0) {
+                    _Headers.clear();
+                    SendError(500);
+                    throw CgiProcessTerminated(_cgiPip);
+                }
             }
         }
 
@@ -626,6 +670,37 @@ namespace ws {
             return _req;
         }
 
+        bool isCgiActive() const {
+            return _cgiPip != -1;
+        }
+
+        int getCgiFd() const {
+            return _cgiPip;
+        }
+
+        /*
+         *  stop cgi process for further execution and clean all resources relate to it
+         */
+        void stopCgi() {
+            std::cout << "stopping cgi..." << std::endl;
+            if (_cgiPip != -1) {
+                close(_cgiPip);
+                _cgiPip = -1;
+            }
+            // removing cgi tmp file
+            if (isFileReadable(_cgiFile))
+                remove(_cgiFile.c_str());
+            if (_cgiPid != -1) {
+                std::cout << "waiting pid: " << _cgiPid << std::endl;
+                bool isChildTerminated = !waitpid(_cgiPid, NULL, 0);
+                if (isChildTerminated) {
+                    std::cout << "couldn't clean cgi process" << std::endl;
+                }
+                else
+                    std::cout << "cgi terminated" << std::endl;
+            }
+        }
+
         /*
          *  reset all parameters to initial state (as if object have just constructed)
          */
@@ -633,6 +708,39 @@ namespace ws {
             _req.reset();
         }
 
+        class CgiProcessStarted : std::exception {
+            int _cgiFd;
+
+        public:
+
+            CgiProcessStarted(int cgiFd): _cgiFd(cgiFd) {}
+
+            int getCgiFd() const {
+                return _cgiFd;
+            }
+
+            char const* what() const throw() {
+                return "cgi ready to be added to select's read fds list";
+            }
+
+        };
+
+        class CgiProcessTerminated : std::exception {
+            int _cgiFd;
+
+        public:
+
+            CgiProcessTerminated(int cgiFd): _cgiFd(cgiFd) {}
+
+            int getCgiFd() const {
+                return _cgiFd;
+            }
+
+            char const* what() const throw() {
+                return "cgi ready to be removed from select's read fds list";
+            }
+
+        };
     };
 
 } // namespace ws

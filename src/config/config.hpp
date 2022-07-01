@@ -585,6 +585,7 @@ namespace ws {
             lb.index = getIndexfile(kv);
             lb.uploadStore = getUploadStore(kv);
             lb.cgiPath = getCgiPath(kv);
+            lb.maxBodySize = getMaxBodySize(kv);
 
             // check valid cgi's
             if (lb.path == ".php" || lb.path == ".py") {
@@ -722,7 +723,7 @@ namespace ws {
 
             MapKeyValueIter iter = getKeyIter(kv, "upload_store", 1);
             if (iter == kv.end()) {
-                uploadStore = defaults::UPLOAD_STORE;
+                uploadStore = "";
             } else {
                 uploadStore = (*iter).second.front();
                 if (!isFileReadable(uploadStore)) {
@@ -770,7 +771,7 @@ namespace ws {
         }
 
         std::vector<std::string> getAllowedMethods( MapKeyValue& kv ) const {
-            MapKeyValueIter iter = getKeyIter(kv, "allow", 3);
+            MapKeyValueIter iter = getKeyIter(kv, "allow", 5);
 
             if (iter == kv.end()) {
                 std::vector<std::string> allowedMethods;

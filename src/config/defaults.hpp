@@ -28,14 +28,13 @@ namespace ws {
         std::string ALLOWED_METHODS[] = {
                 "GET",
                 "POST",
-                "PUT"
+                "PUT",
+                "HEAD"
         };
 
         char const* INDEX = "index.html";
 
         char const* ROOT = "www";
-
-        char const* UPLOAD_STORE = "";
 
         size_t UNLIMITED_BODY_SIZE = 0;
 
