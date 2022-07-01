@@ -15,7 +15,6 @@
 #include "headers.hpp"
 #include "StatusCode.hpp"
 #include <algorithm>
-// #include "cgi.hpp"
 
 
 namespace ws {
@@ -38,6 +37,7 @@ namespace ws {
         pid_t           _cgiPid;
         bool            _CgiFound;
         bool            _PipHeadersRead;
+        struct timeval  _CgiExecDuration;
 
         Response();
     public:
@@ -54,6 +54,7 @@ namespace ws {
             _isErr = false;
             _CgiFound = false;
             _PipHeadersRead = false;
+            bzero(&_CgiExecDuration, sizeof(_CgiExecDuration));
         }
 
     private:
@@ -162,8 +163,6 @@ namespace ws {
 
         bool    ExtractLocation( std::string Path )
         {
-            int found = -1;
-
             if (findCgi(Path))
                 return true;
             std::vector<std::string> Locations = split(Path, "/");
@@ -491,6 +490,7 @@ namespace ws {
             cgi CGI(_req, FilePath, _Location.cgiPath);
             _cgiPip = CGI.execute();
             _cgiPid = CGI.getCgiPid();
+            gettimeofday(&_CgiExecDuration, NULL);
             std::cout << "cgi started ... " << std::endl;
             if (_cgiPip == -1)
                 return SendError(500);
@@ -551,13 +551,12 @@ namespace ws {
             // reading from cgi pipe until separator were found
             if (!_PipHeadersRead) {
                 _Headers += std::string(buff, readret);
-                size_t separatorStart;
                 if ( _Headers.find("\r\n\r\n") == std::string::npos )
                     return;
                 std::string tmpHeaders;
                 if (_Headers.find("Status: ") != std::string::npos) {
                     size_t start = _Headers.find("Status: ");
-                    size_t statusCode = stoi(_Headers.substr(start + 8, start + 11));
+                    int statusCode = stoi(_Headers.substr(start + 8, start + 11));
                     if (statusCode >= 400) {
                         _Headers.clear();
                         SendError(statusCode);
@@ -625,6 +624,14 @@ namespace ws {
 
         void interceptResponseHeaders(std::string& headers) {
             // add more headers
+            (void)headers;
+        }
+
+        void supervise() {
+            int secElapsed = getCgiTimeoutDuration();
+            if (secElapsed > 5) {
+                throw std::runtime_error("cgi timeout reached");
+            }
         }
 
     public:
@@ -633,20 +640,20 @@ namespace ws {
          *  main entry.
          *  engine will invoke this everytime socket is ready for writing
          */
-
-        void send() {
+        void sendChunk(bool pipeReady = false) {
             if (_cgiPip > -1) {
-                readingPipCgi();
-            }
-            else if (!_HeadersSent) {
+                if (pipeReady)
+                    readingPipCgi();
+                else
+                    supervise();
+            } else if (!_HeadersSent) {
                 sendHeaders();
                 // std::cout << _Headers;
-            }
-            else if (_BodyFd > -1) {
+            } else if (_BodyFd > -1) {
                 sendBody();
-            }
-            else
+            } else {
                 throw std::runtime_error("close connection");
+            }
         }
 
         /*
@@ -682,6 +689,7 @@ namespace ws {
          *  stop cgi process for further execution and clean all resources relate to it
          */
         void stopCgi() {
+            bzero(&_CgiExecDuration, sizeof(_CgiExecDuration));
             std::cout << "stopping cgi..." << std::endl;
             if (_cgiPip != -1) {
                 close(_cgiPip);
@@ -691,10 +699,10 @@ namespace ws {
             if (isFileReadable(_cgiFile))
                 remove(_cgiFile.c_str());
             if (_cgiPid != -1) {
-                std::cout << "waiting pid: " << _cgiPid << std::endl;
+                kill(_cgiPid, SIGKILL);
                 bool isChildTerminated = !waitpid(_cgiPid, NULL, 0);
                 if (isChildTerminated) {
-                    std::cout << "couldn't clean cgi process" << std::endl;
+                    std::cout << "couldn't stop cgi process" << std::endl;
                 }
                 else
                     std::cout << "cgi terminated" << std::endl;
@@ -724,6 +732,24 @@ namespace ws {
             }
 
         };
+
+        /*
+         *  Starts cgi timeout
+         */
+        void startCgiTimeout() {
+            gettimeofday(&_CgiExecDuration, NULL);
+        }
+
+        /*
+         *  Return elapsed time of seconds since cgi started execution
+         */
+        int getCgiTimeoutDuration() {
+            struct timeval end;
+            gettimeofday(&end, NULL);
+
+            return end.tv_sec - _CgiExecDuration.tv_sec;
+        }
+
 
         class CgiProcessTerminated : std::exception {
             int _cgiFd;

@@ -64,8 +64,6 @@ namespace ws {
                     continue;
                 }
 
-//                std::cout << "running..." << running++ << std::endl;
-
                 // handling active requests
                 for (size_t i = 0; i < requests.size(); i++) {
                     Request& req = requests[i];
@@ -100,40 +98,41 @@ namespace ws {
 
                 // handling active responses
                 for (size_t i = 0; i < responses.size(); i++) {
-                    Response& response = responses[i];
-
-                    if ( FD_ISSET(response.getSockFd(), &copy_write) ) {
-                        if ( response.isCgiActive() && !FD_ISSET(response.getCgiFd(), &copy_read) )
-                            continue;
+                    Response &response = responses[i];
+                    if (FD_ISSET(response.getSockFd(), &copy_write)) {
                         try {
-                            response.send();
-                        } catch (Response::CgiProcessStarted& e) {
+                            if ( response.isCgiActive() && FD_ISSET(response.getCgiFd(), &copy_write) )
+                                response.sendChunk(true);
+                            else
+                                response.sendChunk();
+                        } catch (Response::CgiProcessStarted &e) {
                             std::cout << e.what() << std::endl;
+                            response.startCgiTimeout();
                             if (_TotalReadFds > 1024) {
                                 _SelectReadWaitlist.push(e.getCgiFd());
                             } else {
                                 FD_SET(e.getCgiFd(), &master_read);
                                 _TotalReadFds++;
                             }
-                        } catch (Response::CgiProcessTerminated& e) {
+                        } catch (Response::CgiProcessTerminated &e) {
                             std::cout << e.what() << std::endl;
+                            std::cout << "cgi process terminated" << std::endl;
                             FD_CLR(e.getCgiFd(), &master_read);
                             _TotalReadFds--;
                             response.stopCgi();
-                        } catch (std::exception& e) {
-                                std::cout << e.what() << std::endl;
-                                close(response.getSockFd());
-                                FD_CLR(response.getSockFd(), &master_write);
-                                _TotalWriteFds--;
-                                responses.erase(responses.begin() + i);
-                                i--;
-                                if (response.isCgiActive()) {
-                                    FD_CLR(response.getCgiFd(), &master_read);
-                                    _TotalReadFds--;
-                                    response.stopCgi();
-                                }
-                                continue;
+                        } catch (std::exception &e) {
+                            std::cout << e.what() << std::endl;
+                            close(response.getSockFd());
+                            FD_CLR(response.getSockFd(), &master_write);
+                            _TotalWriteFds--;
+                            if (response.isCgiActive()) {
+                                FD_CLR(response.getCgiFd(), &master_read);
+                                _TotalReadFds--;
+                                response.stopCgi();
                             }
+                            responses.erase(responses.begin() + i);
+                            i--;
+                            continue;
                         }
                         if (response.done()) {
                             FD_CLR(response.getSockFd(), &master_write);
@@ -155,6 +154,7 @@ namespace ws {
                             i--;
                         }
                     }
+                }
 
                 // new connection
                 for (size_t i = 0; i < _Servers.size(); i++) {
