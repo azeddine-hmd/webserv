@@ -19,6 +19,7 @@ namespace ws {
         char const* PATH_ERROR_PAGE_405 = "error_pages/405.html";
         char const* PATH_ERROR_PAGE_406 = "error_pages/406.html";
         char const* PATH_ERROR_PAGE_413 = "error_pages/413.html";
+        char const* PATH_ERROR_PAGE_414 = "error_pages/414.html";
         char const* PATH_ERROR_PAGE_500 = "error_pages/500.html";
         char const* PATH_ERROR_PAGE_501 = "error_pages/501.html";
         char const* PATH_ERROR_PAGE_502 = "error_pages/502.html";

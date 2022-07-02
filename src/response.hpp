@@ -209,7 +209,7 @@ namespace ws {
             _Headers += "\r\n";
 
 
-            if (write(_req.getSockFd(), _Headers.c_str(), _Headers.length()) < 0)
+            if (write(_req.getSockFd(), _Headers.c_str(), _Headers.length()) <= 0)
                 throw std::runtime_error("error while writing to client");
             _HeadersSent = true;
        }
@@ -293,7 +293,7 @@ namespace ws {
             if (_req.getHeader("Connection") == "keep-alive")
                 _Headers += "Connection: " + _req.getHeader("Connection") + "\r\n";
             _Headers += "\r\n";
-            if (write(_req.getSockFd(), _Headers.c_str(), _Headers.length()) < 0)
+            if (write(_req.getSockFd(), _Headers.c_str(), _Headers.length()) <= 0)
                 throw std::runtime_error("error while writing to client");
             _HeadersSent = true;
         }
@@ -309,7 +309,9 @@ namespace ws {
                 _Headers += "Content-Length: " + To_String(buffer.length()) + "\r\n";
                 _Headers += "\r\n";
                 _Headers += buffer;
-                write(_req.getSockFd(), _Headers.c_str(), _Headers.length());
+
+                if (write(_req.getSockFd(), _Headers.c_str(), _Headers.length()) <= 0)
+                    throw std::runtime_error("error while writing to client");
                 _HeadersSent = true;
                 _Done = true;
             }
@@ -319,7 +321,7 @@ namespace ws {
             std::cout << "Path Error | Errno: " << strerror(errno) << std::endl;
             if (errno == EACCES)    //Search permission is denied for one of the directories in the path prefix of path
                 SendError(403);
-            else if (errno == ENOENT) //A component of path does not exist, or path is an empty string.
+            else if (errno) //A component of path does not exist, or path is an empty string.
                 SendError(404);
         }
 
@@ -344,8 +346,6 @@ namespace ws {
         }
 
         void    SendWithPost() {
-
-
             std::string Path = _req.getHeader("Path");
             std::string NewPath = Path.erase(0, _Location.path.size());
             if (NewPath.back() == '/' || NewPath.empty())
@@ -370,7 +370,7 @@ namespace ws {
                 _Headers += "Connection: " + _req.getHeader("Connection") + "\r\n";
             _Headers += "Content-Length: 0\r\n";
             _Headers += "\r\n";
-            if (write(_req.getSockFd(), _Headers.c_str(), _Headers.length()) < 0)
+            if (write(_req.getSockFd(), _Headers.c_str(), _Headers.length()) <= 0)
                 throw std::runtime_error("error while writing to client");
             _HeadersSent = true;
             _Done = true;
@@ -393,14 +393,13 @@ namespace ws {
        }
 
         void    SendWithDelete(std::string FilePath) {
-            //Protect root srcs
             if (IsFile(FilePath)) {
                 if (remove(FilePath.c_str()) == 0) {
                     _Headers += "HTTP/1.1 204 No Content\r\nDate: " + GetTime();
                     if (_req.getHeader("Connection") == "keep-alive")
                         _Headers += "Connection: " + _req.getHeader("Connection") + "\r\n";
                     _Headers += "\r\n";
-                    if (write(_req.getSockFd(), _Headers.c_str(), _Headers.length()) < 0)
+                    if (write(_req.getSockFd(), _Headers.c_str(), _Headers.length()) <= 0)
                         throw std::runtime_error("error while writing to client");
                     _HeadersSent = true;
                     _Done = true;
@@ -436,7 +435,8 @@ namespace ws {
             if (_req.getHeader("Connection") == "keep-alive")
                 _Headers += "Connection: " + _req.getHeader("Connection") + "\r\n";
             _Headers += "\r\n";
-            write(_req.getSockFd(), _Headers.c_str(), _Headers.length());
+            if (write(_req.getSockFd(), _Headers.c_str(), _Headers.length()) <= 0)
+                throw std::runtime_error("error while writing to client");
             _HeadersSent = true;
             _Done = true;
             throw std::runtime_error("close connection");
@@ -500,6 +500,7 @@ namespace ws {
             ! _req.checkHeader("Transfer-Encoding") &&
             ! _req.checkHeader("Content-Length"))
                 return 400;
+            std::cout << "path len ====> " << _req.getHeader("Path").size() << std::endl;
             if (_req.getHeader("Path").size() > 2048)
                 return 414;
             return 0;
@@ -511,6 +512,8 @@ namespace ws {
 
             int         ErrCode;
 
+            if ((ErrCode = isReqWellFormed()))
+                return SendError(ErrCode);
             if (checkBodySize(_ServerBlock->maxBodySize))
                 return SendError(413);
             if (!ExtractLocation(Path))
@@ -570,7 +573,7 @@ namespace ws {
 			addCgiHeaders();
             std::string cgiHeaders = _Headers.substr(0, _Headers.find("\r\n\r\n") + 2);
             std::cout << "{{{" << cgiHeaders << "}}}" << std::endl;
-            if (write(_req.getSockFd(), _Headers.c_str(), _Headers.find("\r\n\r\n") + 2) < 0)
+            if (write(_req.getSockFd(), _Headers.c_str(), _Headers.find("\r\n\r\n") + 2) <= 0)
                 throw std::runtime_error("error while writing to client");
             _Headers.erase(0, _Headers.find("\r\n\r\n") + 4);
             _PipHeadersRead = true;
@@ -641,7 +644,7 @@ namespace ws {
 //				system(cmd.c_str());
 //				std::cout << "==[end tmp file]==" << std::endl;
 
-                if (write(_req.getSockFd(), _Headers.c_str(), _Headers.size()) < 0)
+                if (write(_req.getSockFd(), _Headers.c_str(), _Headers.size()) <= 0)
                     throw std::runtime_error("error while writing to client");
 
                 throw CgiProcessTerminated(_cgiPip);

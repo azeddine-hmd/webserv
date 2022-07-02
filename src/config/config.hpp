@@ -694,6 +694,7 @@ namespace ws {
             errorPages.insert( getErrorPagePair(kv, "error_page_405", 405, defaults::PATH_ERROR_PAGE_405) );
             errorPages.insert( getErrorPagePair(kv, "error_page_406", 406, defaults::PATH_ERROR_PAGE_406) );
             errorPages.insert( getErrorPagePair(kv, "error_page_413", 413, defaults::PATH_ERROR_PAGE_413) );
+            errorPages.insert( getErrorPagePair(kv, "error_page_414", 414, defaults::PATH_ERROR_PAGE_414) );
             errorPages.insert( getErrorPagePair(kv, "error_page_500", 500, defaults::PATH_ERROR_PAGE_500) );
             errorPages.insert( getErrorPagePair(kv, "error_page_501", 501, defaults::PATH_ERROR_PAGE_501) );
             errorPages.insert( getErrorPagePair(kv, "error_page_502", 502, defaults::PATH_ERROR_PAGE_502) );

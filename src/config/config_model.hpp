@@ -91,6 +91,7 @@ namespace ws {
                 "error_page_405",
                 "error_page_406",
                 "error_page_413",
+                "error_page_414",
                 "error_page_500",
                 "error_page_501",
                 "error_page_502",

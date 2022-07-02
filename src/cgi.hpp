@@ -44,13 +44,7 @@ namespace ws {
             remove(_Data.getBody().c_str());
         }
 
-        // el caroto popito
         void InitMetaVariables(Request& Data) {
-
-            // std::cout << "Content-Length=> " <<  Data.getHeader("Content-Length") << std::endl;
-            // std::cout << "QUERY_STRING=> " << this->_Query << std::endl;
-            // std::cout << "REQUEST_METHOD=> " << this->_Method << std::endl;
-            // std::cout << "SCRIPT_FILENAME=> " << this->_ScriptPath << std::endl;
 
             if (Data.getHeader("Content-Length").length()) {
                 setenv("CONTENT_LENGTH", Data.getHeader("Content-Length").c_str(), 1);
