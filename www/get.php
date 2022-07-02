@@ -26,9 +26,11 @@
         else
             echo $name2;
     }
-    while (1) {
 
-    }
+	for ($i = 0; $i < 1000; $i++) {
+		echo "<h3>$i</h3>\n";
+	}
+	
 ?>
 </body>
 </html>
