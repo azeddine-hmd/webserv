@@ -404,7 +404,7 @@ namespace ws {
                     if (write(_req.getSockFd(), _Headers.c_str(), _Headers.length()) < 0)
                         throw std::runtime_error("error while writing to client");
                     _HeadersSent = true;
-                    _Done = true;              
+                    _Done = true;
                 }
                 else
                     SendError(500);
@@ -523,6 +523,41 @@ namespace ws {
                 return SendWithDelete(FilePath);
         }
 
+        /*
+         *  add Status line header and date
+         *  sending error is possible
+         */
+        void addCgiHeaders() {
+            //TODO: implement
+        }
+
+        void readCgiHeaders(char *buff, int readret) {
+            _Headers += std::string(buff, readret);
+            if ( _Headers.find("\r\n\r\n") == std::string::npos )
+                return;
+            std::string tmpHeaders;
+            if (_Headers.find("Status: ") != std::string::npos) {
+                size_t start = _Headers.find("Status: ");
+                int statusCode = stoi(_Headers.substr(start + 8, start + 11));
+                if (statusCode >= 400) {
+                    _Headers.clear();
+                    SendError(statusCode);
+                    throw CgiProcessTerminated(_cgiPip);
+                }
+                tmpHeaders +=
+                        "HTTP/1.1 " + std::to_string(statusCode) + " " + StatusCode::reasonPhrase(statusCode) +
+                        "\r\n";
+            } else {
+                tmpHeaders += "HTTP/1.1 200 OK\r\n";
+            }
+            tmpHeaders += "Date: " + GetTime();
+            _Headers = tmpHeaders + _Headers;
+            if (write(_req.getSockFd(), _Headers.c_str(), _Headers.find("\r\n\r\n") + 2) < 0)
+                throw std::runtime_error("error while writing to client");
+            _Headers.erase(0, _Headers.find("\r\n\r\n") + 4);
+            _PipHeadersRead = true;
+        }
+
         void readingFromCgiPipe() {
             char buff[1024];
             int readret = read(_cgiPip, buff, 1024);
@@ -531,34 +566,11 @@ namespace ws {
                 SendError(500);
                 throw CgiProcessTerminated(_cgiPip);
             }
-            // reading from cgi pipe until separator were found
             if (!_PipHeadersRead) {
-                _Headers += std::string(buff, readret);
-                if ( _Headers.find("\r\n\r\n") == std::string::npos )
+                // reading from cgi pipe until separator were found
+                readCgiHeaders(buff, readret);
+                if (readret != 0)
                     return;
-                std::string tmpHeaders;
-                if (_Headers.find("Status: ") != std::string::npos) {
-                    size_t start = _Headers.find("Status: ");
-                    int statusCode = stoi(_Headers.substr(start + 8, start + 11));
-                    if (statusCode >= 400) {
-                        _Headers.clear();
-                        SendError(statusCode);
-                        throw CgiProcessTerminated(_cgiPip);
-                    }
-                    tmpHeaders +=
-                            "HTTP/1.1 " + std::to_string(statusCode) + " " + StatusCode::reasonPhrase(statusCode) +
-                            "\r\n";
-                } else {
-                    tmpHeaders += "HTTP/1.1 200 OK\r\n";
-                }
-                tmpHeaders += "Date: " + GetTime();
-                _Headers = tmpHeaders + _Headers;
-                if (write(_req.getSockFd(), _Headers.c_str(), _Headers.find("\r\n\r\n") + 2) < 0)
-                    throw std::runtime_error("error while writing to client");
-                std::cout << "{{{" << _Headers << "}}}" << std::endl;
-                _Headers.erase(0, _Headers.find("\r\n\r\n") + 4);
-                _PipHeadersRead = true;
-                return;
             }
             // creating tmp file if not exist
             if (_cgiTmpFile == -1)  {
@@ -582,6 +594,14 @@ namespace ws {
             // at this point cgi have sent everything to us!
             if (readret == 0) {
                 std::cout << "reach the end of pipe" << std::endl;
+                if (!_Headers.empty()) {
+                    if (write(_cgiTmpFile, _Headers.c_str(), _Headers.size()) < 0) {
+                        _Headers.clear();
+                        SendError(500);
+                        throw CgiProcessTerminated(_cgiPip);
+                    }
+                    _Headers.clear();
+                }
                 close(_cgiTmpFile);
                 _BodyFd = open(_cgiFile.c_str() , O_RDONLY);
                 if (_BodyFd < 0) {
@@ -589,14 +609,37 @@ namespace ws {
                     SendError(500);
                     throw CgiProcessTerminated(_cgiPip);
                 }
+
+                std::cout << "readret: " << readret << "| _PipHeadersRead: " << _PipHeadersRead << std::endl;
+                if (!_PipHeadersRead) {
+                    std::string tmpHeaders;
+                    if (_Headers.find("Status: ") != std::string::npos) {
+                        size_t start = _Headers.find("Status: ");
+                        int statusCode = stoi(_Headers.substr(start + 8, start + 11));
+                        if (statusCode >= 400) {
+                            _Headers.clear();
+                            SendError(statusCode);
+                            throw CgiProcessTerminated(_cgiPip);
+                        }
+                        tmpHeaders +=
+                                "HTTP/1.1 " + std::to_string(statusCode) + " " + StatusCode::reasonPhrase(statusCode) +
+                                "\r\n";
+                    } else {
+                        tmpHeaders += "HTTP/1.1 200 OK\r\n";
+                    }
+                    tmpHeaders += "Date: " + GetTime();
+                    _Headers = tmpHeaders + _Headers;
+                }
+
                 _Headers += "Content-Length: " + To_String(getContentLength(_BodyFd)) + "\r\n\r\n";
+                std::cout << "{{{" << _Headers << "}}}" << std::endl;
                 if (write(_req.getSockFd(), _Headers.c_str(), _Headers.size()) < 0) {
                     throw std::runtime_error("error while writing to client");
                 }
                 _HeadersSent = true;
                 throw CgiProcessTerminated(_cgiPip);
             } else {
-            // send body chunks to tmp file
+                // send body chunks to tmp file
                 if (write(_cgiTmpFile, buff, readret) < 0) {
                     _Headers.clear();
                     SendError(500);
@@ -627,7 +670,7 @@ namespace ws {
         void sendChunk(CgiState_t cgi) {
             if (_cgiPip > -1) {
                 if (cgi == CGI_PIPE_READY) {
-                    std::cout << "reading from pipe" << std::endl;
+//                    std::cout << "reading from pipe" << std::endl;
                     readingFromCgiPipe();
                 } else {
                     supervising();
