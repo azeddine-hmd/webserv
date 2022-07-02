@@ -73,6 +73,16 @@ namespace ws {
             return ctime(&rawtime);
         }
 
+        std::string getTimeStripped() {
+            time_t rawtime;
+
+            time(&rawtime);
+
+            std::string timeStripped(ctime(&rawtime));
+            timeStripped.pop_back();
+            return timeStripped;
+        }
+
         size_t getContentLength(int fd) {
             size_t length;
 
@@ -549,7 +559,7 @@ namespace ws {
 			} else {
 				tmpHeaders += "HTTP/1.1 200 OK\r\n";
 			}
-			tmpHeaders += "Date: " + GetTime();
+			tmpHeaders += "Date: " + getTimeStripped() + "\r\n";
 			_Headers = tmpHeaders + _Headers;
         }
 
@@ -561,6 +571,8 @@ namespace ws {
             if (_Headers.find("\r\n\r\n") == std::string::npos)
                 return;
 			addCgiHeaders();
+            std::string cgiHeaders = _Headers.substr(0, _Headers.find("\r\n\r\n") + 2);
+            std::cout << "{{{" << cgiHeaders << "}}}" << std::endl;
             if (write(_req.getSockFd(), _Headers.c_str(), _Headers.find("\r\n\r\n") + 2) < 0)
                 throw std::runtime_error("error while writing to client");
             _Headers.erase(0, _Headers.find("\r\n\r\n") + 4);
@@ -614,24 +626,23 @@ namespace ws {
                     _Headers.clear();
                 }
 
-				//TODO: is there a way to rewind fd to start from the beginning without closing and reopening?
                 close(_cgiTmpFile);
                 _BodyFd = open(_cgiFile.c_str() , O_RDONLY);
 				if (_BodyFd < 0)
 					cgiInternalError();
 
                 if (!_PipHeadersRead)
-					addCgiHeaders();
+                    addCgiHeaders();
 
                 _Headers += "Content-Length: " + To_String(getContentLength(_BodyFd)) + "\r\n\r\n";
                 std::cout << "{{{" << _Headers << "}}}" << std::endl;
                 _HeadersSent = true;
 
 				// TODO debugging tmp file content
-				std::cout << "tmp file: " << _cgiFile << std::endl;
-				std::string cmd = "cat '" + _cgiFile + "'";
-				system(cmd.c_str());
-				std::cout << "==[end tmp file]==" << std::endl;
+//				std::cout << "tmp file: " << _cgiFile << std::endl;
+//				std::string cmd = "cat '" + _cgiFile + "'";
+//				system(cmd.c_str());
+//				std::cout << "==[end tmp file]==" << std::endl;
 
                 if (write(_req.getSockFd(), _Headers.c_str(), _Headers.size()) < 0)
                     throw std::runtime_error("error while writing to client");
