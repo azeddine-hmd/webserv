@@ -71,7 +71,6 @@ namespace ws {
             close(fd[1]);
             close(fd[0]);
             execve(args[0], args, environ);
-            std::cerr << "execve failed | errno: " << strerror(errno) << std::endl;
             exit(errno);
         }
 
@@ -82,7 +81,6 @@ namespace ws {
             dup2(fd[1], 1);
             close(fd[1]);
             execve(args[0], args, environ);
-            std::cerr << "execve failed | errno: " << strerror(errno) << std::endl;
             exit(errno);
         }
 

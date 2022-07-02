@@ -123,10 +123,8 @@ namespace ws {
                             }
                         } catch (Response::CgiProcessTerminated &e) {
                             std::cout << e.what() << std::endl;
-                            std::cout << "cgi process terminated" << std::endl;
                             FD_CLR(e.getCgiFd(), &master_read);
                             _TotalReadFds--;
-                            response.stopCgi();
                         } catch (std::exception &e) {
                             std::cout << e.what() << std::endl;
                             close(response.getSockFd());

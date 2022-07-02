@@ -551,6 +551,7 @@ namespace ws {
 				if (statusCode >= 400) {
 					_Headers.clear();
 					SendError(statusCode);
+                    stopCgi();
 					throw CgiProcessTerminated(_cgiPip);
 				}
 				tmpHeaders +=
@@ -583,14 +584,33 @@ namespace ws {
 		 *	Function to respond to any error encountered while cgi is active.
 		 */
 		void cgiInternalError() {
+            int cgiPipeFd = -1;
 			_Headers.clear();
 			SendError(500);
-			throw CgiProcessTerminated(_cgiPip);
+            cgiPipeFd = _cgiPip;
+            stopCgi();
+			throw CgiProcessTerminated(cgiPipeFd);
 		}
 
         void readingFromCgiPipe() {
             char buff[1024];
             int readret = read(_cgiPip, buff, 1024);
+
+            // stop cgi process at early stage (suggested by mourad: thanks for your input)
+            int cgiPipeFd = -1;
+            if (readret == 0) {
+                // in case execve failed check cgi return status
+                int processStatus;
+                waitpid(_cgiPid, &processStatus, 0);
+                int exitStatus = WEXITSTATUS(processStatus);
+                if (exitStatus) {
+                    std::cout << "cgi exit with error: " << strerror(exitStatus) << std::endl;
+                    cgiInternalError();
+                }
+                std::cout << "cgi exit normally" << std::endl;
+                stopCgi();
+            }
+
             if (readret < 0)
 				cgiInternalError();
 
@@ -638,17 +658,9 @@ namespace ws {
                 std::cout << "{{{" << _Headers << "}}}" << std::endl;
                 _HeadersSent = true;
 
-				// TODO debugging tmp file content
-//				std::cout << "tmp file: " << _cgiFile << std::endl;
-//				std::string cmd = "cat '" + _cgiFile + "'";
-//				system(cmd.c_str());
-//				std::cout << "==[end tmp file]==" << std::endl;
-
-                if (write(_req.getSockFd(), _Headers.c_str(), _Headers.size()) <= 0)
+                if (write(_req.getSockFd(), _Headers.c_str(), _Headers.size()) < 0)
                     throw std::runtime_error("error while writing to client");
-
-                throw CgiProcessTerminated(_cgiPip);
-
+                throw CgiProcessTerminated(cgiPipeFd);
             } else {
                 // send body chunks to tmp file
                 if (write(_cgiTmpFile, buff, readret) < 0)
@@ -657,6 +669,7 @@ namespace ws {
         }
 
         void supervising() {
+            int cgiPipeFd = -1;
             int secElapsed = getCgiTimeoutDuration();
             if (secElapsed > 5) {
                 if (_HeadersSent)
@@ -664,7 +677,9 @@ namespace ws {
                 if (!_Headers.empty())
                     _Headers.clear();
                 SendError(504);
-                throw CgiProcessTerminated(_cgiPip);
+                cgiPipeFd = _cgiPip;
+                stopCgi();
+                throw CgiProcessTerminated(cgiPipeFd);
             }
         }
 

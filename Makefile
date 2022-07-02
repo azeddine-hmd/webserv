@@ -9,22 +9,13 @@ SRC =	src/main.cpp \
 
 OBJ = ${SRC:.cpp=.o}
 
-CLIENT_SRC = src/client.c
-CLIENT_OBJ = $(CLIENT_SRC:.c=.o)
-
 all: $(NAME)
 
 $(NAME):
 	@$(CC) $(FLAGS) $(SRC) -o $(NAME)
 
-client:
-	@$(CC) $(FLAGS) $(CLIENT_SRC) -o client
-
 clean:
-	@rm -f $(OBJ) $(CLIENT_OBJ) $(NAME) client
-
-test_config: tests/config.cpp
-	@$(CC) $(FLAGS) $< -o tester
+	@rm -f $(OBJ) $(NAME)
 
 re: clean all
 
