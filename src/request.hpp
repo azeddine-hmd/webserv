@@ -80,7 +80,7 @@ namespace ws {
         void ChunkedDecode()
         {
             int delimPos;
-            if(_ChunkSize > 0 && (int)_BodyBuffer.size() < _ChunkSize + 2)
+            if(_ChunkSize >= 0 && (int)_BodyBuffer.size() < _ChunkSize + 2)
             {
                 return;
             }
@@ -92,7 +92,7 @@ namespace ws {
                     _ChunkSize = hexToDec(_BodyBuffer.substr(0,delimPos));
                     _bodySize += _ChunkSize;
                     _BodyBuffer.erase(0, delimPos + 2);
-                    if(_ChunkSize == 0)
+                    if(_ChunkSize == 0 && _BodyBuffer.size() >= 2)
                     {
                         _RequestDone = true;
                         _Headers["Content-Length"] = std::to_string(_bodySize);
@@ -126,15 +126,15 @@ namespace ws {
 			parseFirstLine();
 			while(parseParam() != -1);
 			_HeaderDone = true;
-			if(_Headers.find("Content-Length") != _Headers.end())
+            if(_Headers.find("Transfer-Encoding") != _Headers.end() && _Headers["Transfer-Encoding"] == "chunked")
+            {
+                _Chunked = true;
+            }
+			else if(_Headers.find("Content-Length") != _Headers.end())
 			{
 				std::istringstream iss(_Headers["Content-Length"]);
 				iss >> _targetSize;
 			}
-            else if(_Headers.find("Transfer-Encoding") != _Headers.end())
-            {
-                _Chunked = true;
-            }
 			else
 			{
 				_RequestDone = true;
@@ -159,7 +159,14 @@ namespace ws {
 
         // get a parameter by key
         std::string getHeader( std::string key ) {
+            if(_Headers.find(key) == _Headers.end())
+                return "";
             return _Headers[key];
+        }
+
+        bool checkHeader( std::string key )
+        {
+            return (_Headers.find(key) != _Headers.end());
         }
 
         // get a parameter by key
@@ -178,7 +185,7 @@ namespace ws {
 
         void CreateFile() {
             int random = (int) time(nullptr);
-            std::string n = std::string("/tmp/USER_") + std::to_string(random);
+            std::string n = std::string("tmp/USER_") + std::to_string(random);
             _BodyFile.fd = open(n.c_str(), O_CREAT | O_WRONLY, 0644);
             _BodyFile.name = n;
         }
@@ -237,7 +244,5 @@ namespace ws {
         }
 
     };
-
 } // namespace ws
-
 #endif

@@ -142,6 +142,7 @@ namespace ws {
                             continue;
                         }
                         if (response.done()) {
+                            response.deleteBody();
                             FD_CLR(response.getSockFd(), &master_write);
                             _TotalWriteFds--;
                             if (response.getRequest().getHeader("Connection") == "keep-alive") {

@@ -28,9 +28,7 @@ namespace ws {
 
         std::string ALLOWED_METHODS[] = {
                 "GET",
-                "POST",
-                "PUT",
-                "HEAD"
+                "POST"
         };
 
         char const* INDEX = "index.html";

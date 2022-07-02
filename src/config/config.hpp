@@ -793,10 +793,6 @@ namespace ws {
                     allowedMethods.push_back("DELETE");
                 } else if (allowed[i] == "NONE") {
                     allowedMethods.push_back("NONE");
-                } else if (allowed[i] == "HEAD") {
-                    allowedMethods.push_back("HEAD");
-                } else if (allowed[i] == "PUT") {
-                    allowedMethods.push_back("PUT");
                 } else {
                     throw ParsingException(formatMessage("unknown http method `%s`", allowed[i].c_str()));
                 }

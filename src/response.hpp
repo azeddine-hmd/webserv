@@ -44,7 +44,6 @@ namespace ws {
 
         Response();
     public:
-
         Response( Request& request, ServerBlock& serverBlock ): _req(request), _ServerBlock(&serverBlock) {
             _Headers = std::string();
             _HeadersSent = false;
@@ -213,13 +212,6 @@ namespace ws {
             if (write(_req.getSockFd(), _Headers.c_str(), _Headers.length()) < 0)
                 throw std::runtime_error("error while writing to client");
             _HeadersSent = true;
-            if(_req.getHeader("Method") == "HEAD")
-            {
-                close(_BodyFd);
-                _BodyFd = -1;
-                _Done = true;
-                return;
-            }
        }
 
         std::string getParent(std::string location)
@@ -304,13 +296,6 @@ namespace ws {
             if (write(_req.getSockFd(), _Headers.c_str(), _Headers.length()) < 0)
                 throw std::runtime_error("error while writing to client");
             _HeadersSent = true;
-            if(_req.getHeader("Method") == "HEAD")
-            {
-                close(_BodyFd);
-                _BodyFd = -1;
-                _Done = true;
-                return;
-            }
         }
 
         void    sendAutoIndex(std::string FilePath) {
@@ -358,14 +343,15 @@ namespace ws {
                 SendFile(FilePath);
         }
 
-        void    SendWithPost(std::string FilePath) {
-            // need to protect things
-            std::vector<std::string> Paths = split(FilePath, "/");
+        void    SendWithPost() {
+
+
+            std::string Path = _req.getHeader("Path");
+            std::string NewPath = Path.erase(0, _Location.path.size());
+            if (NewPath.back() == '/' || NewPath.empty())
+                return SendError(406);
+            std::vector<std::string> Paths = split(NewPath, "/");
             std::string FileName = Paths[Paths.size() -1];
-
-			std::string path = _req.getHeader("Path");
-
-
             std::string targetUpload;
             if (_Location.uploadStore.empty()) {
                 if (_Location.root.back() == '/')
@@ -377,8 +363,8 @@ namespace ws {
                 targetUpload = _Location.uploadStore + "/" + FileName;
             }
             std::cout << "uploading to: " << targetUpload << std::endl;
-            std::string cmd = "mv " + _req.getBodyFile().name + ' ' + targetUpload;
-            system(cmd.c_str());
+            if (rename(_req.getBodyFile().name.c_str(), targetUpload.c_str()) != 0)
+                perror("Error renaming file");
             _Headers += "HTTP/1.1 201 CREATED\r\nDate: " + GetTime();
             if (_req.getHeader("Connection") == "keep-alive")
                 _Headers += "Connection: " + _req.getHeader("Connection") + "\r\n";
@@ -462,8 +448,6 @@ namespace ws {
             implMethods.push_back("GET");
             implMethods.push_back("POST");
             implMethods.push_back("DELETE");
-            implMethods.push_back("HEAD");
-            implMethods.push_back("PUT");
 
             std::cout << "in check method : ";
             std::cout << _req.getHeader("Method") << std::endl;
@@ -508,6 +492,19 @@ namespace ws {
             return false;
         }
 
+        int     isReqWellFormed() {
+            if (_req.checkHeader("Transfer-Encoding") &&
+            _req.getHeader("Transfer-Encoding") != "chunked")
+                return 501;
+            if (_req.getHeader("Method") == "POST" &&
+            ! _req.checkHeader("Transfer-Encoding") &&
+            ! _req.checkHeader("Content-Length"))
+                return 400;
+            if (_req.getHeader("Path").size() > 2048)
+                return 414;
+            return 0;
+        }
+
         void    sendHeaders() {
             std::string Method = _req.getHeader("Method");
             std::string Path = _req.getHeader("Path");
@@ -528,10 +525,10 @@ namespace ws {
                 return sendWithRedirect();
             if (_CgiFound && (Method == "GET" || Method == "POST"))
                 return SendWithCGI(FilePath);
-            if (Method == "GET" || Method == "HEAD")
+            if (Method == "GET")
                 return SendWithGet(FilePath);
-            if (Method == "POST" || Method == "PUT")
-                return SendWithPost(FilePath);
+            if (Method == "POST")
+                return SendWithPost();
             if (Method == "DELETE")
                 return SendWithDelete(FilePath);
         }
@@ -759,6 +756,11 @@ namespace ws {
          */
         void reset() {
             _req.reset();
+        }
+
+        void deleteBody( void ) {
+            if (isFileReadable(_req.getBodyFile().name))
+                remove(_req.getBodyFile().name.c_str());
         }
 
         class CgiProcessStarted : std::exception {
