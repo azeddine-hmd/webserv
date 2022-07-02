@@ -14,10 +14,10 @@ CLIENT_OBJ = $(CLIENT_SRC:.c=.o)
 
 all: $(NAME)
 
-$(NAME): clean
+$(NAME):
 	@$(CC) $(FLAGS) $(SRC) -o $(NAME)
 
-client: clean
+client:
 	@$(CC) $(FLAGS) $(CLIENT_SRC) -o client
 
 clean:
