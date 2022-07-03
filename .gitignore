@@ -6,6 +6,7 @@
 client
 server
 tester
+webserv
 
 # Objects
 *.o

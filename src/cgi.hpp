@@ -93,7 +93,8 @@ namespace ws {
                 NULL
             };
 
-            pipe(fd);
+            if (pipe(fd) < 0)
+                return -1;
             fcntl(fd[0], F_SETFL, O_NONBLOCK);
             fcntl(fd[1], F_SETFL, O_NONBLOCK);
             pid = fork();

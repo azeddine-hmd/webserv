@@ -1,7 +1,11 @@
 <?php
     $cookie_name = "name";
-    $cookie_value = "hamada";
+    $cookie_value = "Mourad";
     setcookie($cookie_name, $cookie_value, time() + (86400 * 30), "/");
+    setcookie("first_name", "awa.jpeg", time() + (86400 * 30), "/");
+    setcookie("last_name", "ayaya", time() + (86400 * 30), "/");
+
+
 ?>
 
 <html>

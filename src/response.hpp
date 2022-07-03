@@ -165,7 +165,12 @@ namespace ws {
             if (start == std::string::npos)
                 return false;
 
-            if (GetCGILocation(lastPath.substr(start, lastPath.size())))
+            std::string type = lastPath.substr(start, lastPath.size());
+            std::string typeStripped = type;
+            if (type.find("?") != std::string::npos) {
+                typeStripped = type.substr(0, type.find("?"));
+            }
+            if (GetCGILocation(typeStripped))
                 return true;
 
             return false;

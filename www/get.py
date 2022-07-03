@@ -1,26 +1,22 @@
-# /bin/python2
-import cgi, cgitb
-import sys
-from time import sleep
+import os
 
-# Create instance of FieldStorage
-form = cgi.FieldStorage()
+# Hello world python program
+# print "\r\n\r\n"
 
-print "\r\n\r\n\r\n\r\n"
+handler = {}
+if 'HTTP_COOKIE' in os.environ:
+    cookies = os.environ['HTTP_COOKIE']
+    cookies = cookies.split('; ')
 
-# Get data from fields
-first_name = form.getvalue('first_name')
-last_name = form.getvalue('last_name')
-nick_name = form.getvalue('nick_name')
-
+    for cookie in cookies:
+        cookie = cookie.split('=')
+        handler[cookie[0]] = cookie[1]
 print "<html>"
 print "<head>"
 print "<title>Hello - Second CGI Program</title>"
 print "</head>"
 print "<body>"
-print "<h2>Hello %s %s %s</h2>" % (first_name, last_name, nick_name)
+for k in handler:
+    print k + " = " + handler[k] + "<br>"
 print "</body>"
 print "</html>"
-
-for x in range(1000):
-    print '<h1>{}</h1>'.format(x)
