@@ -35,6 +35,7 @@ namespace ws {
         bool            _isErr;
 
         int             _cgiPip;
+        int             _cgiPipeBackup;
         std::string     _cgiFile;
         int             _cgiTmpFile;
         pid_t           _cgiPid;
@@ -50,6 +51,7 @@ namespace ws {
             _Done = false;
             _BodyFd = -1;
             _cgiPip = -1;
+            _cgiPipeBackup = -1;
             _cgiFile = std::string();
             _cgiTmpFile = -1;
             _isErr = false;
@@ -466,18 +468,6 @@ namespace ws {
             return (0);
         }
 
-        void    SendWithCGI(std::string FilePath) {
-            std::cout << "executing cgi ..." << std::endl;
-            cgi CGI(_req, FilePath, _Location.cgiPath);
-            _cgiPip = CGI.execute();
-            _cgiPid = CGI.getCgiPid();
-            gettimeofday(&_CgiExecDuration, NULL);
-            std::cout << "cgi started ... " << std::endl;
-            if (_cgiPip == -1)
-                return SendError(500);
-            throw CgiProcessStarted(_cgiPip);
-        }
-
         bool     isLessMaxBody( size_t maxBodySize ) {
             size_t ReqLen = std::stoi(_req.getHeader("Content-Length"));
             return ReqLen <= maxBodySize;
@@ -536,6 +526,19 @@ namespace ws {
                 return SendWithDelete(FilePath);
         }
 
+        void    SendWithCGI(std::string FilePath) {
+            std::cout << "executing cgi ..." << std::endl;
+            cgi CGI(_req, FilePath, _Location.cgiPath);
+            _cgiPip = CGI.execute();
+            _cgiPipeBackup = _cgiPip;
+            _cgiPid = CGI.getCgiPid();
+            gettimeofday(&_CgiExecDuration, NULL);
+            std::cout << "cgi started ... " << std::endl;
+            if (_cgiPip == -1)
+                return SendError(500);
+            throw CgiProcessStarted(_cgiPip);
+        }
+
         /*
          *  Adds status line and date to cgi response headers.
 		 *	side effect:
@@ -580,16 +583,21 @@ namespace ws {
             _PipHeadersRead = true;
         }
 
+        void removeCgiTmpFile() {
+            if (isFileReadable(_cgiFile)) {
+                remove(_cgiFile.c_str());
+            }
+        }
+
 		/*
 		 *	Function to respond to any error encountered while cgi is active.
 		 */
 		void cgiInternalError() {
-            int cgiPipeFd = -1;
-			_Headers.clear();
-			SendError(500);
-            cgiPipeFd = _cgiPip;
+            _Headers.clear();
+            SendError(500);
             stopCgi();
-			throw CgiProcessTerminated(cgiPipeFd);
+            removeCgiTmpFile();
+            throw CgiProcessTerminated(_cgiPipeBackup);
 		}
 
         void readingFromCgiPipe() {
@@ -597,7 +605,6 @@ namespace ws {
             int readret = read(_cgiPip, buff, 1024);
 
             // stop cgi process at early stage (suggested by mourad: thanks for your input)
-            int cgiPipeFd = -1;
             if (readret == 0) {
                 // in case execve failed check cgi return status
                 int processStatus;
@@ -641,15 +648,18 @@ namespace ws {
                 std::cout << "reach the end of pipe" << std::endl;
 
                 if (!_Headers.empty()) {
-                    if (write(_cgiTmpFile, _Headers.c_str(), _Headers.size()) < 0)
-						cgiInternalError();
+                    if (write(_cgiTmpFile, _Headers.c_str(), _Headers.size()) <= 0) {
+                        std::cout << "inside headers empty failure" << std::endl;
+                        cgiInternalError();
+                    }
                     _Headers.clear();
                 }
 
                 close(_cgiTmpFile);
                 _BodyFd = open(_cgiFile.c_str() , O_RDONLY);
-				if (_BodyFd < 0)
-					cgiInternalError();
+				if (_BodyFd < 0) {
+                    cgiInternalError();
+                }
 
                 if (!_PipHeadersRead)
                     addCgiHeaders();
@@ -658,13 +668,15 @@ namespace ws {
                 std::cout << "{{{" << _Headers << "}}}" << std::endl;
                 _HeadersSent = true;
 
-                if (write(_req.getSockFd(), _Headers.c_str(), _Headers.size()) < 0)
+                if (write(_req.getSockFd(), _Headers.c_str(), _Headers.size()) <= 0)
                     throw std::runtime_error("error while writing to client");
-                throw CgiProcessTerminated(cgiPipeFd);
+
+                throw CgiProcessTerminated(_cgiPipeBackup);
             } else {
                 // send body chunks to tmp file
-                if (write(_cgiTmpFile, buff, readret) < 0)
-					cgiInternalError();
+                if (write(_cgiTmpFile, buff, readret) <= 0) {
+                    cgiInternalError();
+                }
             }
         }
 
@@ -752,10 +764,6 @@ namespace ws {
                 close(_cgiPip);
                 _cgiPip = -1;
             }
-
-            // removing tmp file
-            if (isFileReadable(_cgiFile))
-                remove(_cgiFile.c_str());
 
 			// closing cgi process
             if (_cgiPid != -1) {
