@@ -637,7 +637,7 @@ namespace ws {
 
                 // writing remaining data in _Headers into tmp file
                 if (!_Headers.empty()) {
-                    if (write(_cgiTmpFile, _Headers.c_str(), _Headers.size()) < 0)
+                    if (write(_cgiTmpFile, _Headers.c_str(), _Headers.size()) <= 0)
 						cgiInternalError();
                     _Headers.clear();
                 }
