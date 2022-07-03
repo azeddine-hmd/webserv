@@ -142,13 +142,13 @@ namespace ws {
         }
 
         bool    GetCGILocation(std::string cgiType) {
-            std::cout << "CGI Type = " << cgiType << std::endl;
+            //std::cout << "CGI Type = " << cgiType << std::endl;
             int found = FindLocation(cgiType);
 
             if (found != -1)
             {
                 _CgiFound = true;
-                std::cout << "found CGI location" << std::endl;
+                //std::cout << "found CGI location" << std::endl;
                 _Location = _ServerBlock->locations[found];
                 return true;
             }
@@ -196,7 +196,7 @@ namespace ws {
        void    SendError(int ErrCode) {
             std::string FilePath =  _ServerBlock->errorPages.find(ErrCode)->second;
 
-            std::cout << "Send error called " << ErrCode << std::endl;
+            //std::cout << "Send error called " << ErrCode << std::endl;
             _BodyFd = open(FilePath.c_str(), O_RDONLY);
             _Headers += "HTTP/1.1 " + To_String(ErrCode) + " " + StatusCode::reasonPhrase(ErrCode) + "\r\n";
             _Headers += "Date: " + GetTime();
@@ -266,15 +266,15 @@ namespace ws {
 						} else {
 							abslPath = location + d->d_name;
 						}
-						std::cout << "abslPath: " << abslPath << std::endl;
-						std::cout << "file name: " << d->d_name << std::endl;
+						//std::cout << "abslPath: " << abslPath << std::endl;
+						//std::cout << "file name: " << d->d_name << std::endl;
                         buffer += makeRow(abslPath,d->d_name);
 					}
                 }
                 closedir(dr);
             }
             else
-                std::cout<<"\nError Occurred!" << std::endl;
+                //std::cout<<"\nError Occurred!" << std::endl;
             buffer += "</table></body></html>";
             return buffer;
         }
@@ -312,7 +312,7 @@ namespace ws {
         }
 
         void    sendAutoIndex(std::string FilePath) {
-            std::cout << "auto index called" << std::endl;
+            //std::cout << "auto index called" << std::endl;
             std::string buffer = generateAutoIndex(_req.getHeader("Path"), FilePath);
             if (buffer == "403")
                 SendError(403);
@@ -331,7 +331,7 @@ namespace ws {
         }
 
         void    CheckPathErrors() {
-            std::cout << "Path Error | Errno: " << strerror(errno) << std::endl;
+            //std::cout << "Path Error | Errno: " << strerror(errno) << std::endl;
             if (errno == EACCES)    //Search permission is denied for one of the directories in the path prefix of path
                 SendError(403);
             else if (errno) //A component of path does not exist, or path is an empty string.
@@ -375,7 +375,7 @@ namespace ws {
                     _Location.uploadStore.pop_back();
                 targetUpload = _Location.uploadStore + "/" + FileName;
             }
-            std::cout << "uploading to: " << targetUpload << std::endl;
+            //std::cout << "uploading to: " << targetUpload << std::endl;
             if (rename(_req.getBodyFile().name.c_str(), targetUpload.c_str()) != 0)
                 perror("Error renaming file");
             _Headers += "HTTP/1.1 201 CREATED\r\nDate: " + GetTime();
@@ -462,14 +462,14 @@ namespace ws {
             implMethods.push_back("POST");
             implMethods.push_back("DELETE");
 
-            std::cout << "in check method : ";
-            std::cout << _req.getHeader("Method") << std::endl;
+            //std::cout << "in check method : ";
+            //std::cout << _req.getHeader("Method") << std::endl;
             if (std::find(implMethods.begin(),implMethods.end(), Method) == implMethods.end())
             {
-                std::cout << "not implemented !" << std::endl;
+                //std::cout << "not implemented !" << std::endl;
                 return (501);
             }
-            std::cout << "implemented !" << std::endl;
+            //std::cout << "implemented !" << std::endl;
             if (std::find(
                 _Location.allowedMethods.begin(),
                 _Location.allowedMethods.end(),
@@ -501,7 +501,7 @@ namespace ws {
             ! _req.checkHeader("Transfer-Encoding") &&
             ! _req.checkHeader("Content-Length"))
                 return 400;
-            std::cout << "path len ====> " << _req.getHeader("Path").size() << std::endl;
+            //std::cout << "path len ====> " << _req.getHeader("Path").size() << std::endl;
             if (_req.getHeader("Path").size() > 2048)
                 return 414;
             return 0;
@@ -524,7 +524,7 @@ namespace ws {
             if ((ErrCode = checkMethod(Method)))
                 return SendError(ErrCode);
             std::string FilePath = GetFilePath(Path);
-            std::cout << "built path " << FilePath << std::endl;
+            //std::cout << "built path " << FilePath << std::endl;
             if (_Location.redirect != defaults::EMPTY_REDIRECT)
                 return sendWithRedirect();
             if (_CgiFound && (Method == "GET" || Method == "POST"))
@@ -538,13 +538,13 @@ namespace ws {
         }
 
         void    SendWithCGI(std::string FilePath) {
-            std::cout << "executing cgi ..." << std::endl;
+            //std::cout << "executing cgi ..." << std::endl;
             cgi CGI(_req, FilePath, _Location.cgiPath);
             _cgiPip = CGI.execute();
             _cgiPipeBackup = _cgiPip;
             _cgiPid = CGI.getCgiPid();
             gettimeofday(&_CgiExecDuration, NULL);
-            std::cout << "cgi started ... " << std::endl;
+            //std::cout << "cgi started ... " << std::endl;
             if (_cgiPip == -1)
                 return SendError(500);
             throw CgiProcessStarted(_cgiPip);
@@ -587,7 +587,7 @@ namespace ws {
                 return;
 			addCgiHeaders();
             std::string cgiHeaders = _Headers.substr(0, _Headers.find("\r\n\r\n") + 2);
-            std::cout << "{{{" << cgiHeaders << "}}}" << std::endl;
+            //std::cout << "{{{" << cgiHeaders << "}}}" << std::endl;
             if (write(_req.getSockFd(), _Headers.c_str(), _Headers.find("\r\n\r\n") + 2) <= 0)
                 throw CloseConnection("error while writing to client");
             _Headers.erase(0, _Headers.find("\r\n\r\n") + 4);
@@ -624,10 +624,10 @@ namespace ws {
                 waitpid(_cgiPid, &processStatus, 0);
                 int exitStatus = WEXITSTATUS(processStatus);
                 if (exitStatus) {
-                    std::cout << "cgi exit with error: " << strerror(exitStatus) << std::endl;
+                    //std::cout << "cgi exit with error: " << strerror(exitStatus) << std::endl;
                     cgiInternalError();
                 }
-                std::cout << "cgi exit normally" << std::endl;
+                //std::cout << "cgi exit normally" << std::endl;
                 stopCgi();
             }
 
@@ -656,11 +656,11 @@ namespace ws {
 
             // at this point cgi have sent everything to us!
             if (readret == 0) {
-                std::cout << "reach the end of pipe" << std::endl;
+                //std::cout << "reach the end of pipe" << std::endl;
 
                 if (!_Headers.empty()) {
                     if (write(_cgiTmpFile, _Headers.c_str(), _Headers.size()) <= 0) {
-                        std::cout << "inside headers empty failure" << std::endl;
+                        //std::cout << "inside headers empty failure" << std::endl;
                         cgiInternalError();
                     }
                     _Headers.clear();
@@ -676,7 +676,7 @@ namespace ws {
                     addCgiHeaders();
 
                 _Headers += "Content-Length: " + To_String(getContentLength(_BodyFd)) + "\r\n\r\n";
-                std::cout << "{{{" << _Headers << "}}}" << std::endl;
+                //std::cout << "{{{" << _Headers << "}}}" << std::endl;
                 _HeadersSent = true;
 
                 if (write(_req.getSockFd(), _Headers.c_str(), _Headers.size()) <= 0)
@@ -695,7 +695,7 @@ namespace ws {
             int secElapsed = getCgiTimeoutDuration();
             if (secElapsed > defaults::TIMEOUT) {
                 if (_HeadersSent)
-                    std::cout << "headers already sent" << std::endl;
+                    //std::cout << "headers already sent" << std::endl;
                 if (!_Headers.empty())
                     _Headers.clear();
                 SendError(504);
@@ -763,7 +763,7 @@ namespace ws {
          *  Stop cgi process for further execution and clean all resources relate to it.
          */
         void stopCgi() {
-            std::cout << "stopping cgi..." << std::endl;
+            //std::cout << "stopping cgi..." << std::endl;
 
 			// resetting timeout
             bzero(&_CgiExecDuration, sizeof(_CgiExecDuration));
@@ -779,10 +779,11 @@ namespace ws {
                 kill(_cgiPid, SIGKILL);
                 bool isChildTerminated = !waitpid(_cgiPid, NULL, 0);
                 if (isChildTerminated) {
-                    std::cout << "couldn't stop cgi process" << std::endl;
+                    //std::cout << "couldn't stop cgi process" << std::endl;
                 }
                 else
-                    std::cout << "cgi terminated" << std::endl;
+                    ;
+                    //std::cout << "cgi terminated" << std::endl;
             }
         }
 

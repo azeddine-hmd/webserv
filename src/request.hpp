@@ -151,7 +151,7 @@ namespace ws {
                 if(_bodySize == _targetSize)
                 {
                     _RequestDone = true;
-                    std::cout << "done" << std::endl;
+                    //std::cout << "done" << std::endl;
                     return;
                 }
             }
@@ -209,7 +209,7 @@ namespace ws {
                     if(_bodySize == _targetSize)
                     {
                         _RequestDone = true;
-                        std::cout << "done" << std::endl;
+                        //std::cout << "done" << std::endl;
                         return;
                     }
                 }
