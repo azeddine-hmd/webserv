@@ -31,6 +31,8 @@
 		echo "<h3>$i</h3>\n";
 	}
 
+    exit 1
+
     while (1) {
 
     }

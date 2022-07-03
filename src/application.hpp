@@ -101,18 +101,17 @@ namespace ws {
                     if (FD_ISSET(response.getSockFd(), &copy_write)) {
                         try {
 
-                            if ( response.isCgiActive() ) {
-                                if ( FD_ISSET(response.getCgiFd(), &copy_read) ) {
+                            if (response.isCgiActive()) {
+                                if (FD_ISSET(response.getCgiFd(), &copy_read)) {
                                     response.sendChunk(Response::CGI_PIPE_READY);
                                 } else {
                                     response.sendChunk(Response::CGI_SUPERVISE);
                                 }
-                            }
-                            else {
+                            } else {
                                 response.sendChunk(Response::CGI_OFF);
                             }
 
-                        } catch (Response::CgiProcessStarted &e) {
+                        } catch (Response::CgiProcessStarted& e) {
                             std::cout << e.what() << std::endl;
                             response.startCgiTimeout();
                             if (_TotalReadFds > 1024) {
@@ -121,11 +120,13 @@ namespace ws {
                                 FD_SET(e.getCgiFd(), &master_read);
                                 _TotalReadFds++;
                             }
-                        } catch (Response::CgiProcessTerminated &e) {
+                        } catch (Response::CgiProcessTerminated& e) {
                             std::cout << e.what() << std::endl;
                             FD_CLR(e.getCgiFd(), &master_read);
                             _TotalReadFds--;
-                        } catch (std::exception &e) {
+                        } catch (Response::IgnoreResponse& e) {
+                            std::cout << e.what() << std::endl;
+                        } catch (Response::CloseConnection& e) {
                             std::cout << e.what() << std::endl;
                             close(response.getSockFd());
                             FD_CLR(response.getSockFd(), &master_write);
@@ -138,6 +139,8 @@ namespace ws {
                             responses.erase(responses.begin() + i);
                             i--;
                             continue;
+                        } catch (std::exception& e) {
+                            std::cout << e.what() << std::endl;
                         }
                         if (response.done()) {
                             response.deleteBody();

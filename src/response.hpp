@@ -100,18 +100,24 @@ namespace ws {
             return (convert.str());
         }
 
+        void internalError(std::string msg = std::string("internal error")) {
+            _Headers.clear();
+            SendError(500);
+            throw IgnoreResponse(msg.c_str());
+        }
+
         void sendBody() {
             char buffer[1024];
             int readRet = read(_BodyFd, buffer, 1024);
             if (readRet < 0)
-                throw std::runtime_error("error while reading from response body file");
+                internalError("error while reading from response body file");
             if (readRet == 0) {
                 close(_BodyFd);
                 _Done = true;
                 return;
             }
             if (write(_req.getSockFd(), buffer, readRet) <= 0)
-                throw std::runtime_error("error while writing to client");
+                throw CloseConnection("error while writing to client");
         }
 
         int FindLocation( std::string Location ) {
@@ -212,7 +218,7 @@ namespace ws {
 
 
             if (write(_req.getSockFd(), _Headers.c_str(), _Headers.length()) <= 0)
-                throw std::runtime_error("error while writing to client");
+                throw CloseConnection("error while writing to client");
             _HeadersSent = true;
        }
 
@@ -282,7 +288,7 @@ namespace ws {
         void SendFile(std::string FilePath) {
             int fd = open(FilePath.c_str(), O_RDONLY);
             if (fd < 0)
-                throw std::runtime_error("Error Opening a File");
+                throw CloseConnection("Error Opening a File");
             _BodyFd = fd;
             const char *Type = MimeTypes::getType(FilePath.c_str());
             _Headers += "HTTP/1.1 200 OK\r\nDate: " + GetTime();
@@ -296,7 +302,7 @@ namespace ws {
                 _Headers += "Connection: " + _req.getHeader("Connection") + "\r\n";
             _Headers += "\r\n";
             if (write(_req.getSockFd(), _Headers.c_str(), _Headers.length()) <= 0)
-                throw std::runtime_error("error while writing to client");
+                throw CloseConnection("error while writing to client");
             _HeadersSent = true;
         }
 
@@ -313,7 +319,7 @@ namespace ws {
                 _Headers += buffer;
 
                 if (write(_req.getSockFd(), _Headers.c_str(), _Headers.length()) <= 0)
-                    throw std::runtime_error("error while writing to client");
+                    throw CloseConnection("error while writing to client");
                 _HeadersSent = true;
                 _Done = true;
             }
@@ -373,7 +379,7 @@ namespace ws {
             _Headers += "Content-Length: 0\r\n";
             _Headers += "\r\n";
             if (write(_req.getSockFd(), _Headers.c_str(), _Headers.length()) <= 0)
-                throw std::runtime_error("error while writing to client");
+                throw CloseConnection("error while writing to client");
             _HeadersSent = true;
             _Done = true;
         }
@@ -402,7 +408,7 @@ namespace ws {
                         _Headers += "Connection: " + _req.getHeader("Connection") + "\r\n";
                     _Headers += "\r\n";
                     if (write(_req.getSockFd(), _Headers.c_str(), _Headers.length()) <= 0)
-                        throw std::runtime_error("error while writing to client");
+                        throw CloseConnection("error while writing to client");
                     _HeadersSent = true;
                     _Done = true;
                 }
@@ -438,10 +444,10 @@ namespace ws {
                 _Headers += "Connection: " + _req.getHeader("Connection") + "\r\n";
             _Headers += "\r\n";
             if (write(_req.getSockFd(), _Headers.c_str(), _Headers.length()) <= 0)
-                throw std::runtime_error("error while writing to client");
+                throw CloseConnection("error while writing to client");
             _HeadersSent = true;
             _Done = true;
-            throw std::runtime_error("close connection");
+            throw CloseConnection("close connection");
         }
 
         int     checkMethod(std::string Method) {
@@ -578,7 +584,7 @@ namespace ws {
             std::string cgiHeaders = _Headers.substr(0, _Headers.find("\r\n\r\n") + 2);
             std::cout << "{{{" << cgiHeaders << "}}}" << std::endl;
             if (write(_req.getSockFd(), _Headers.c_str(), _Headers.find("\r\n\r\n") + 2) <= 0)
-                throw std::runtime_error("error while writing to client");
+                throw CloseConnection("error while writing to client");
             _Headers.erase(0, _Headers.find("\r\n\r\n") + 4);
             _PipHeadersRead = true;
         }
@@ -603,6 +609,8 @@ namespace ws {
         void readingFromCgiPipe() {
             char buff[1024];
             int readret = read(_cgiPip, buff, 1024);
+            if (readret < 0)
+                cgiInternalError();
 
             // stop cgi process at early stage (suggested by mourad: thanks for your input)
             if (readret == 0) {
@@ -618,8 +626,6 @@ namespace ws {
                 stopCgi();
             }
 
-            if (readret < 0)
-				cgiInternalError();
 
             if (!_PipHeadersRead) {
                 // reading from cgi pipe until separator were found
@@ -669,7 +675,7 @@ namespace ws {
                 _HeadersSent = true;
 
                 if (write(_req.getSockFd(), _Headers.c_str(), _Headers.size()) <= 0)
-                    throw std::runtime_error("error while writing to client");
+                    throw CloseConnection("error while writing to client");
 
                 throw CgiProcessTerminated(_cgiPipeBackup);
             } else {
@@ -720,7 +726,7 @@ namespace ws {
             } else if (_BodyFd > -1) {
                 sendBody();
             } else {
-                throw std::runtime_error("close connection");
+                throw CloseConnection("close connection");
             }
         }
 
@@ -836,6 +842,32 @@ namespace ws {
 
             char const* what() const throw() {
                 return "cgi ready to be removed from select's read fds list";
+            }
+
+        };
+
+        class IgnoreResponse : std::exception {
+            char const *_Msg;
+
+        public:
+
+            IgnoreResponse(char const* msg): _Msg(msg) {}
+
+            char const* what() const throw() {
+                return _Msg;
+            }
+
+        };
+
+        class CloseConnection : std::exception {
+            char const *_Msg;
+
+        public:
+
+            CloseConnection(char const* msg): _Msg(msg) {}
+
+            char const* what() const throw() {
+                return _Msg;
             }
 
         };
