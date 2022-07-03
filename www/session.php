@@ -1,5 +1,4 @@
 <?php
-// Start the session
 session_start();
 ?>
 <!DOCTYPE html>
@@ -7,15 +6,17 @@ session_start();
 <body>
 
 <?php
-// Set session variables
-$_SESSION["favcolor"] = "green";
-$_SESSION["favanimal"] = "cat";
-echo "Session variables are set.\n";
+if(isset($_SESSION["visits"])) {
+    $_SESSION["visits"] = $_SESSION["visits"] + 1;
+} else {
+    $_SESSION["visits"] = 1;
+}
 
-echo "Favorite color is " . $_SESSION["favcolor"] . ".<br>";
-echo "Favorite animal is " . $_SESSION["favanimal"] . ".";
-
+// print_r($_SESSION);
+//print session visites
+echo "<h1>You have visited this page " . $_SESSION["visits"] . " times.</h1>";
 ?>
+
 
 </body>
 </html>
