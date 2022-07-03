@@ -65,7 +65,7 @@ namespace ws {
         }
 
         void execWithGET(char *args[3], int fd[2]) {
-            //std::cout << "cgi executing get ..." << std::endl;
+            std::cout << "cgi executing get ..." << std::endl;
             dup2(fd[1], 1);
             close(0);
             close(fd[1]);
@@ -75,7 +75,7 @@ namespace ws {
         }
 
         int execWithPOST(char *args[3], int fd[2]) {
-            //std::cout << "cgi executing post ..." << std::endl;
+            std::cout << "cgi executing post ..." << std::endl;
             int fd3 = open(_Data.getBodyFile().name.c_str(), O_RDONLY);
             dup2(fd3, 0);
             dup2(fd[1], 1);

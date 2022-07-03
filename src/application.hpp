@@ -58,7 +58,7 @@ namespace ws {
                 fd_set copy_write = master_write;
                 int ret = select(MAX_SOCKET_FD, &copy_read, &copy_write, NULL, NULL);
                 if (ret == -1) {
-                    //std::cout << "select: " << strerror(errno) << std::endl;
+                    std::cout << "select: " << strerror(errno) << std::endl;
                     sleep(1);
                     continue;
                 }
@@ -70,7 +70,7 @@ namespace ws {
                         try {
                             req.readChunk();
                         } catch (std::runtime_error& e) {
-                            //std::cout << e.what() << std::endl;
+                            std::cout << e.what() << std::endl;
                             close(req.getSockFd());
                             FD_CLR(req.getSockFd(), &master_read);
                             _TotalReadFds--;
@@ -112,7 +112,7 @@ namespace ws {
                             }
 
                         } catch (Response::CgiProcessStarted& e) {
-                            //std::cout << e.what() << std::endl;
+                            std::cout << e.what() << std::endl;
                             response.startCgiTimeout();
                             if (_TotalReadFds > 1024) {
                                 _SelectReadWaitlist.push(e.getCgiFd());
@@ -121,13 +121,13 @@ namespace ws {
                                 _TotalReadFds++;
                             }
                         } catch (Response::CgiProcessTerminated& e) {
-                            //std::cout << e.what() << std::endl;
+                            std::cout << e.what() << std::endl;
                             FD_CLR(e.getCgiFd(), &master_read);
                             _TotalReadFds--;
                         } catch (Response::IgnoreResponse& e) {
-                            //std::cout << e.what() << std::endl;
+                            std::cout << e.what() << std::endl;
                         } catch (Response::CloseConnection& e) {
-                            //std::cout << e.what() << std::endl;
+                            std::cout << e.what() << std::endl;
                             close(response.getSockFd());
                             FD_CLR(response.getSockFd(), &master_write);
                             _TotalWriteFds--;
@@ -140,14 +140,14 @@ namespace ws {
                             i--;
                             continue;
                         } catch (std::exception& e) {
-                            //std::cout << e.what() << std::endl;
+                            std::cout << e.what() << std::endl;
                         }
                         if (response.done()) {
                             response.deleteBody();
                             FD_CLR(response.getSockFd(), &master_write);
                             _TotalWriteFds--;
                             if (response.getRequest().getHeader("Connection") == "keep-alive") {
-                                //std::cout << "resetting connection" << std::endl;
+                                std::cout << "resetting connection" << std::endl;
                                 response.reset();
                                 requests.push_back(response.getRequest());
                                 if (_TotalReadFds > 1024) {
