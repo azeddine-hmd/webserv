@@ -44,6 +44,7 @@ namespace ws {
 
         std::pair<int, std::string> EMPTY_REDIRECT(-1, "");
 
+        int TIMEOUT = 10;
 
     } // namespace defaults
 } // namespace ws

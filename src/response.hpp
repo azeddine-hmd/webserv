@@ -683,7 +683,7 @@ namespace ws {
         void supervising() {
             int cgiPipeFd = -1;
             int secElapsed = getCgiTimeoutDuration();
-            if (secElapsed > 5) {
+            if (secElapsed > defaults::TIMEOUT) {
                 if (_HeadersSent)
                     std::cout << "headers already sent" << std::endl;
                 if (!_Headers.empty())
