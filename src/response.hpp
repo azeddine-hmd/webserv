@@ -220,6 +220,11 @@ namespace ws {
             if (write(_req.getSockFd(), _Headers.c_str(), _Headers.length()) <= 0)
                 throw CloseConnection("error while writing to client");
             _HeadersSent = true;
+            if (_req.getHeader("Method") == "HEAD")
+            {
+                close(_BodyFd);
+                _Done = true;
+            }
        }
 
         std::string getParent(std::string location)
@@ -561,7 +566,7 @@ namespace ws {
 					_Headers.clear();
 					SendError(statusCode);
                     stopCgi();
-					throw CgiProcessTerminated(_cgiPip);
+					throw CgiProcessTerminated(_cgiPipeBackup);
 				}
 				tmpHeaders +=
 					"HTTP/1.1 " + std::to_string(statusCode) + " " + StatusCode::reasonPhrase(statusCode) +
@@ -687,7 +692,6 @@ namespace ws {
         }
 
         void supervising() {
-            int cgiPipeFd = -1;
             int secElapsed = getCgiTimeoutDuration();
             if (secElapsed > defaults::TIMEOUT) {
                 if (_HeadersSent)
@@ -695,9 +699,8 @@ namespace ws {
                 if (!_Headers.empty())
                     _Headers.clear();
                 SendError(504);
-                cgiPipeFd = _cgiPip;
                 stopCgi();
-                throw CgiProcessTerminated(cgiPipeFd);
+                throw CgiProcessTerminated(_cgiPipeBackup);
             }
         }
 
